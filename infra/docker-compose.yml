@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boored-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: boored
+      POSTGRES_PASSWORD: boored_dev
+      POSTGRES_DB: boored
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boored -d boored"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: alpine/minio:latest-release
+    container_name: boored-minio
+    restart: unless-stopped
+    user: root
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-setup:
+    image: alpine/minio:latest-release
+    container_name: boored-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/boored --ignore-existing;
+      exit 0;
+      "
+
+volumes:
+  pgdata:
+  miniodata:
