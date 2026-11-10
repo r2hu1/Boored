@@ -1,0 +1,61 @@
+name: API CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "packages/**"
+
+jobs:
+  check:
+    name: Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: boored
+          POSTGRES_PASSWORD: boored_dev
+          POSTGRES_DB: boored
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U boored"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+        env:
+          DATABASE_URL: postgres://boored:boored_dev@localhost:5432/boored
+          S3_ENDPOINT: http://localhost:9000
+          S3_BUCKET: boored
+          S3_ACCESS_KEY: test
+          S3_SECRET_KEY: test
+          JWT_SECRET: ci-test-secret-that-is-at-least-32-characters-long-enough
+          GOOGLE_CLIENT_ID: test-client-id
+          NODE_ENV: test
