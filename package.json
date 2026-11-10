@@ -1,0 +1,23 @@
+{
+  "name": "boored",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @boored/api dev",
+    "build": "pnpm --filter @boored/api build",
+    "db:generate": "pnpm --filter @boored/db generate",
+    "db:migrate": "pnpm --filter @boored/db migrate",
+    "db:studio": "pnpm --filter @boored/db studio",
+    "test": "pnpm --filter @boored/api test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "infra:up": "docker-compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker-compose -f infra/docker-compose.yml down",
+    "spec:export": "pnpm --filter @boored/api spec:export",
+    "clean": "pnpm -r exec rm -rf node_modules dist .turbo"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.29.2"
+}
