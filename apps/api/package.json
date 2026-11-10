@@ -1,0 +1,37 @@
+{
+  "name": "@boored/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "spec:export": "tsx src/scripts/export-spec.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "@boored/contracts": "workspace:*",
+    "@boored/db": "workspace:*",
+    "@hono/node-server": "^2.1.0",
+    "@hono/zod-openapi": "^1.6.0",
+    "@scalar/hono-api-reference": "^0.12.0",
+    "dotenv": "^16.6.1",
+    "hono": "^4.13.0",
+    "hono-rate-limiter": "^0.5.0",
+    "jose": "^6.2.0",
+    "nanoid": "^6.0.0",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "latest",
+    "typescript": "^5.0.0",
+    "vitest": "^5.1.0"
+  }
+}
