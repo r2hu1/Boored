@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/.packages
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/android/app/debug/
+apps/mobile/android/app/profile/
+apps/mobile/android/app/release/
+apps/mobile/ios/
+apps/mobile/macos/
+apps/mobile/linux/
+apps/mobile/windows/
+apps/mobile/web/
+*.iml
+
+# Generated
+apps/mobile/lib/generated/
+*.g.dart
+*.freezed.dart
+
+# Test
+coverage/
+
+# Drizzle
+packages/db/drizzle/meta/_journal.json.bak
+
+# MinIO data
+infra/minio-data/
+
+# Logs
+*.log
