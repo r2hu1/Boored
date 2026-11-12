@@ -3,9 +3,11 @@ import 'package:camera/camera.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../data/capture_service.dart';
-import '../../notes/presentation/notes_controller.dart';
+import '../data/opencv_service.dart';
+import 'widgets/board_overlay.dart';
+import '../../notes/data/notes_repository.dart';
 
-enum CapturePhase { idle, initializing, previewing, recording, stopping, error }
+enum CapturePhase { idle, initializing, previewing, recording, paused, stopping, error }
 
 class CaptureState {
   final CapturePhase phase;
@@ -44,26 +46,29 @@ class CaptureState {
 }
 
 class CaptureNotifier extends Notifier<CaptureState> {
-  late final CaptureService _service;
+  CaptureService? _service;
+  late final OpenCVService _openCVService;
   Timer? _elapsedTimer;
 
   @override
   CaptureState build() {
-    _service = CaptureService();
+    _openCVService = OpenCVService();
     ref.onDispose(() {
       _elapsedTimer?.cancel();
-      _service.dispose();
+      _service?.dispose();
       WakelockPlus.disable();
     });
     return const CaptureState();
   }
 
-  CaptureService get service => _service;
+  CaptureService? get service => _service;
+  OpenCVService get openCVService => _openCVService;
 
   Future<CameraController> initCamera() async {
     state = state.copyWith(phase: CapturePhase.initializing);
     try {
-      final controller = await _service.initCamera();
+      _service ??= CaptureService();
+      final controller = await _service!.initCamera();
       state = state.copyWith(phase: CapturePhase.previewing);
       return controller;
     } catch (e) {
@@ -75,26 +80,39 @@ class CaptureNotifier extends Notifier<CaptureState> {
     }
   }
 
-  Future<void> startRecording(String noteId) async {
+  Future<void> startRecording(
+    String noteId, {
+    List<BoardCorner>? corners,
+  }) async {
+    _service ??= CaptureService();
     state = state.copyWith(
       phase: CapturePhase.recording,
       noteId: noteId,
-      framesCaptured: 0,
-      elapsed: Duration.zero,
+      framesCaptured: state.framesCaptured,
+      elapsed: state.elapsed,
     );
 
     await WakelockPlus.enable();
 
+    _elapsedTimer?.cancel();
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       state = state.copyWith(
         elapsed: state.elapsed + const Duration(seconds: 1),
       );
     });
 
-    await _service.startCapture(
+    await _service!.startCapture(
       noteId: noteId,
       interval: Duration(seconds: state.intervalSeconds),
-      onFrameCaptured: (index, path) {
+      onFrameCaptured: (index, rawPath) async {
+        if (corners != null && corners.length == 4) {
+          final warpedPath = rawPath.replaceAll('.jpg', '_rectified.jpg');
+          await _openCVService.warpPerspective(
+            srcPath: rawPath,
+            dstPath: warpedPath,
+            corners: corners,
+          );
+        }
         state = state.copyWith(framesCaptured: index + 1);
       },
       onError: (e) {
@@ -106,19 +124,27 @@ class CaptureNotifier extends Notifier<CaptureState> {
     );
   }
 
+  Future<void> pauseRecording() async {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    await _service?.stopCapture();
+    await WakelockPlus.disable();
+    state = state.copyWith(phase: CapturePhase.paused);
+  }
+
   Future<void> stopRecording() async {
     state = state.copyWith(phase: CapturePhase.stopping);
     _elapsedTimer?.cancel();
     _elapsedTimer = null;
 
-    await _service.stopCapture();
+    await _service?.stopCapture();
     await WakelockPlus.disable();
 
-    // Update note status to processing
     if (state.noteId != null) {
-      ref
-          .read(notesNotifierProvider.notifier)
-          .updateNoteTitle(state.noteId!, state.noteId!); // trigger updatedAt
+      try {
+        final repo = ref.read(notesRepositoryProvider);
+        await repo.updateTitle(state.noteId!, state.noteId!);
+      } catch (_) {}
     }
 
     state = state.copyWith(phase: CapturePhase.previewing);
@@ -130,11 +156,14 @@ class CaptureNotifier extends Notifier<CaptureState> {
 
   Future<void> cleanup() async {
     _elapsedTimer?.cancel();
-    await _service.dispose();
+    await _service?.dispose();
+    _service = null;
     await WakelockPlus.disable();
     state = const CaptureState();
   }
 }
 
 final captureNotifierProvider =
-    NotifierProvider<CaptureNotifier, CaptureState>(() => CaptureNotifier());
+    NotifierProvider.autoDispose<CaptureNotifier, CaptureState>(
+  () => CaptureNotifier(),
+);
