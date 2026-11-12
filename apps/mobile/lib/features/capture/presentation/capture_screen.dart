@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'capture_controller.dart';
 import 'widgets/board_overlay.dart';
+import '../data/opencv_service.dart';
 
 class CaptureScreen extends ConsumerStatefulWidget {
   final String noteId;
@@ -30,6 +31,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     BoardCorner(0.1, 0.8),
   ];
   bool _showOverlay = true;
+
+  final OpenCVService _openCVService = OpenCVService();
+  bool _isAutoDetecting = false;
 
   @override
   void initState() {
@@ -75,6 +79,43 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       }
     } catch (e) {
       // Error state handled by captureNotifierProvider
+    }
+  }
+
+  Future<void> _autoDetectCorners() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized || _isAutoDetecting) {
+      return;
+    }
+
+    setState(() => _isAutoDetecting = true);
+    try {
+      final shot = await _cameraController!.takePicture();
+      final detected = await _openCVService.detectBoardCorners(shot.path);
+      if (mounted) {
+        setState(() {
+          _corners = detected;
+          _showOverlay = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Board corners detected! Adjust handles if needed.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not detect clear board corners. Manual adjust available.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAutoDetecting = false);
+      }
     }
   }
 
@@ -200,6 +241,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (captureState.phase != CapturePhase.recording)
+                      IconButton(
+                        icon: _isAutoDetecting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.auto_fix_high, color: Colors.white),
+                        tooltip: 'Auto-detect board corners',
+                        onPressed: _isAutoDetecting ? null : _autoDetectCorners,
+                      ),
                     IconButton(
                       icon: Icon(
                         _showOverlay ? Icons.crop_free : Icons.crop,
@@ -277,36 +333,20 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   void _toggleRecording(CaptureState captureState) {
     final notifier = ref.read(captureNotifierProvider.notifier);
     if (captureState.phase == CapturePhase.recording) {
-      notifier.stopRecording();
-    } else if (captureState.phase == CapturePhase.previewing) {
-      notifier.startRecording(widget.noteId);
+      notifier.pauseRecording();
+    } else if (captureState.phase == CapturePhase.previewing ||
+        captureState.phase == CapturePhase.paused) {
+      notifier.startRecording(widget.noteId, corners: _corners);
     }
   }
 
   Future<void> _handleBack(CaptureState captureState) async {
     if (captureState.phase == CapturePhase.recording) {
-      final stop = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Stop Recording?'),
-          content: const Text(
-              'Going back will stop the current capture session.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Continue Recording'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Stop & Go Back'),
-            ),
-          ],
-        ),
-      );
-      if (stop != true) return;
-      await ref.read(captureNotifierProvider.notifier).stopRecording();
+      await ref.read(captureNotifierProvider.notifier).pauseRecording();
     }
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
