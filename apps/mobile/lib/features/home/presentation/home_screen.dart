@@ -5,6 +5,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../../notes/presentation/notes_controller.dart';
 import '../../notes/presentation/widgets/note_card.dart';
 import '../../notes/presentation/widgets/create_note_dialog.dart';
+import '../../sync/sync_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -56,6 +57,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               )
             : null,
         actions: [
+          if (!_isSearching)
+            Consumer(
+              builder: (ctx, ref, _) {
+                final syncState = ref.watch(syncNotifierProvider);
+                if (syncState.status == SyncStatus.syncing) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                return IconButton(
+                  icon: Badge(
+                    isLabelVisible: syncState.pendingCount > 0,
+                    label: Text('${syncState.pendingCount}'),
+                    child: const Icon(Icons.sync),
+                  ),
+                  tooltip: 'Sync changes',
+                  onPressed: () {
+                    ref.read(syncNotifierProvider.notifier).syncNow();
+                  },
+                );
+              },
+            ),
           if (!_isSearching)
             IconButton(
               icon: const Icon(Icons.search),

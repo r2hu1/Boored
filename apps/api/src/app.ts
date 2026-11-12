@@ -8,6 +8,7 @@ import { env } from "./env.js";
 import { healthRoute } from "./routes/health.js";
 import { authRoute } from "./routes/auth.js";
 import { meRoute } from "./routes/me.js";
+import { syncRoute } from "./routes/sync.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 export function createApp() {
@@ -22,6 +23,7 @@ export function createApp() {
   app.route("/v1", healthRoute);
   app.route("/v1", authRoute);
   app.route("/v1", meRoute);
+  app.route("/v1", syncRoute);
 
   app.doc("/v1/openapi.json", {
     openapi: "3.1.0",
