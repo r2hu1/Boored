@@ -180,16 +180,20 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Camera preview
-            if (_cameraController != null &&
-                _cameraController!.value.isInitialized)
-              Center(
-                child: AspectRatio(
-                  aspectRatio: _cameraController!.value.aspectRatio,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Fullscreen camera preview with BoxFit.cover
+          if (_cameraController != null &&
+              _cameraController!.value.isInitialized)
+            SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _cameraController!.value.previewSize?.height ??
+                      MediaQuery.of(context).size.width,
+                  height: _cameraController!.value.previewSize?.width ??
+                      MediaQuery.of(context).size.height,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -205,15 +209,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                     ],
                   ),
                 ),
-              )
-            else
-              const Center(child: CircularProgressIndicator(color: Colors.white)),
+              ),
+            )
+          else
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-            // Top bar
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+          // Top bar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -273,12 +280,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                 ),
               ),
             ),
+          ),
 
-            // Bottom controls
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
+          // Bottom controls
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              top: false,
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -356,8 +366,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

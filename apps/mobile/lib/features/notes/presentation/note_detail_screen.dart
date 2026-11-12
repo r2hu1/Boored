@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_file_plus/open_file_plus.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -188,6 +189,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               PopupMenuButton<String>(
                 onSelected: (val) {
                   if (val == 'rename') _showRenameDialog(note);
+                  if (val == 'open_pdf') _openPdfExternally();
+                  if (val == 'download_pdf') _downloadPdfToDownloads(note);
                   if (val == 'delete') _confirmDelete(note);
                 },
                 itemBuilder: (ctx) => [
@@ -201,6 +204,27 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                       ],
                     ),
                   ),
+                  const PopupMenuItem(
+                    value: 'open_pdf',
+                    child: Row(
+                      children: [
+                        Icon(Icons.open_in_new, size: 20),
+                        SizedBox(width: 8),
+                        Text('Open PDF in App'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'download_pdf',
+                    child: Row(
+                      children: [
+                        Icon(Icons.download_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('Save to Downloads'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(
@@ -493,8 +517,35 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
 
     return Stack(
       children: [
-        PdfViewPinch(
-          controller: _pdfController!,
+        Container(
+          color: Colors.grey.shade100,
+          child: PdfViewPinch(
+            controller: _pdfController!,
+            builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+              options: const DefaultBuilderOptions(),
+              documentLoaderBuilder: (_) => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              pageLoaderBuilder: (_) => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              errorBuilder: (_, error) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 12),
+                    Text('Failed to render PDF: $error'),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _openPdfExternally,
+                      child: const Text('Open in External Viewer'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
         Positioned(
           bottom: 16,
@@ -531,6 +582,60 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         ),
       ],
     );
+  }
+
+  Future<void> _openPdfExternally() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+    final file = File(pdfPath);
+    if (!file.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please generate PDF first')),
+        );
+      }
+      return;
+    }
+    await OpenFile.open(pdfPath);
+  }
+
+  Future<void> _downloadPdfToDownloads(Note note) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+    final file = File(pdfPath);
+    if (!file.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please generate PDF first')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final downloadDir = Directory('/sdcard/Download');
+      final sanitizedTitle = note.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final targetFile = File('${downloadDir.path}/${sanitizedTitle}_document.pdf');
+      await file.copy(targetFile.path);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to Downloads: ${targetFile.path}'),
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => OpenFile.open(targetFile.path),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save to Downloads: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _showRenameDialog(Note note) async {
