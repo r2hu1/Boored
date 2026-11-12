@@ -58,6 +58,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadPdf();
   }
 
   @override
@@ -214,42 +215,46 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               ),
             ],
           ),
-          body: keyframesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error loading keyframes: $e')),
-            data: (keyframes) {
-              if (keyframes.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.videocam_off_outlined, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('No keyframes recorded for this session yet.'),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        icon: const Icon(Icons.videocam),
-                        label: const Text('Start Capture'),
-                        onPressed: () {
-                          context.push(
-                            '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }
+          body: SafeArea(
+            bottom: true,
+            top: false,
+            child: keyframesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error loading keyframes: $e')),
+              data: (keyframes) {
+                if (keyframes.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.videocam_off_outlined, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        const Text('No keyframes recorded for this session yet.'),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.videocam),
+                          label: const Text('Start Capture'),
+                          onPressed: () {
+                            context.push(
+                              '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-              return TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildTimelineTab(keyframes),
-                  _buildPagesGridTab(keyframes),
-                  _buildPdfTab(),
-                ],
-              );
-            },
+                return TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildTimelineTab(keyframes),
+                    _buildPagesGridTab(keyframes),
+                    _buildPdfTab(),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
@@ -494,21 +499,34 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         Positioned(
           bottom: 16,
           right: 16,
-          child: FloatingActionButton.extended(
-            icon: const Icon(Icons.share),
-            label: const Text('Share PDF'),
-            onPressed: () async {
-              final appDir = await getApplicationDocumentsDirectory();
-              final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
-              if (File(pdfPath).existsSync()) {
-                await SharePlus.instance.share(
-                  ShareParams(
-                    files: [XFile(pdfPath)],
-                    title: 'Whiteboard PDF',
-                  ),
-                );
-              }
-            },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'regenerate_pdf',
+                icon: const Icon(Icons.refresh),
+                label: const Text('Regenerate'),
+                onPressed: _runFinalPass,
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton.extended(
+                heroTag: 'share_pdf',
+                icon: const Icon(Icons.share),
+                label: const Text('Share PDF'),
+                onPressed: () async {
+                  final appDir = await getApplicationDocumentsDirectory();
+                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+                  if (File(pdfPath).existsSync()) {
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        files: [XFile(pdfPath)],
+                        title: 'Whiteboard PDF',
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ],
