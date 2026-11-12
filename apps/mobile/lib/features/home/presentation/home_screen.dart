@@ -187,7 +187,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final note = notesState.notes[index];
         return NoteCard(
           note: note,
-          onTap: () => context.push('/notes/${note.id}'),
+          onTap: () {
+            if (note.status == 'recording') {
+              context.push(
+                '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
+              );
+            } else {
+              context.push('/notes/${note.id}');
+            }
+          },
           onDelete: () {
             ref.read(notesNotifierProvider.notifier).deleteNote(note.id);
             ScaffoldMessenger.of(context).showSnackBar(
