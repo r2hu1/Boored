@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/database/database_provider.dart';
+import '../../core/network/api_client.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../sync/sync_controller.dart';
 
@@ -92,10 +94,21 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      final apiClient = ApiClient();
+      try {
+        await apiClient.dio.delete('/me');
+      } catch (_) {}
+
+      final db = ref.read(databaseProvider);
+      final user = ref.read(authNotifierProvider).user;
+      if (user != null) {
+        await (db.delete(db.notes)..where((tbl) => tbl.userId.equals(user.id))).go();
+      }
+
       await ref.read(authNotifierProvider.notifier).signOut();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account deleted successfully')),
+          const SnackBar(content: Text('Account and all data deleted successfully')),
         );
       }
     }

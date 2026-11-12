@@ -11,6 +11,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
   }
 
   if (err instanceof ZodError) {
+    console.error("Zod Validation Error:", JSON.stringify(err.flatten()));
     return c.json(
       {
         error: {

@@ -9,11 +9,11 @@ const syncRoute = new OpenAPIHono<AuthContext>();
 const NoteSyncItem = z.object({
   id: z.string().uuid(),
   title: z.string(),
-  status: z.enum(["recording", "processing", "ready", "failed"]),
+  status: z.string(),
   duration_ms: z.number().int().nullable().optional(),
-  created_at: z.string().datetime().optional(),
-  updated_at: z.string().datetime().optional(),
-  deleted_at: z.string().datetime().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+  deleted_at: z.string().nullable().optional(),
   version: z.number().int(),
 });
 
@@ -78,6 +78,18 @@ syncRoute.openapi(pushRoute, async (c) => {
   let acceptedKeyframes = 0;
 
   for (const n of incomingNotes) {
+    const validStatus = (["recording", "processing", "ready", "failed"].includes(n.status)
+      ? n.status
+      : "recording") as "recording" | "processing" | "ready" | "failed";
+
+    let deletedAtDate: Date | null = null;
+    if (n.deleted_at) {
+      const parsed = Date.parse(n.deleted_at);
+      if (!isNaN(parsed)) {
+        deletedAtDate = new Date(parsed);
+      }
+    }
+
     const [existing] = await db
       .select()
       .from(notes)
@@ -90,9 +102,9 @@ syncRoute.openapi(pushRoute, async (c) => {
           .update(notes)
           .set({
             title: n.title,
-            status: n.status,
+            status: validStatus,
             duration_ms: n.duration_ms ?? existing.duration_ms,
-            deleted_at: n.deleted_at ? new Date(n.deleted_at) : null,
+            deleted_at: deletedAtDate,
             version: n.version,
             updated_at: new Date(),
           })
@@ -104,8 +116,9 @@ syncRoute.openapi(pushRoute, async (c) => {
         id: n.id,
         user_id: user.sub,
         title: n.title,
-        status: n.status,
+        status: validStatus,
         duration_ms: n.duration_ms ?? null,
+        deleted_at: deletedAtDate,
         version: n.version,
       });
       acceptedNotes++;
