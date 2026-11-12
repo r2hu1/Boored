@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:open_file_plus/open_file_plus.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -596,7 +595,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       }
       return;
     }
-    await OpenFile.open(pdfPath);
+    await OpenCVService().openPdf(pdfPath);
   }
 
   Future<void> _downloadPdfToDownloads(Note note) async {
@@ -624,7 +623,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
             content: Text('Saved to Downloads: ${targetFile.path}'),
             action: SnackBarAction(
               label: 'Open',
-              onPressed: () => OpenFile.open(targetFile.path),
+              onPressed: () => OpenCVService().openPdf(targetFile.path),
             ),
           ),
         );

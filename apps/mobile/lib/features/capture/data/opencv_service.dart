@@ -35,6 +35,15 @@ class OpenCVService {
     }
   }
 
+  Future<bool> openPdf(String filePath) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('openPdf', {'filePath': filePath});
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<String?> warpPerspective({
     required String srcPath,
     required String dstPath,
