@@ -9,6 +9,7 @@ import { healthRoute } from "./routes/health.js";
 import { authRoute } from "./routes/auth.js";
 import { meRoute } from "./routes/me.js";
 import { syncRoute } from "./routes/sync.js";
+import { searchRoute } from "./routes/search.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 export function createApp() {
@@ -24,6 +25,7 @@ export function createApp() {
   app.route("/v1", authRoute);
   app.route("/v1", meRoute);
   app.route("/v1", syncRoute);
+  app.route("/v1", searchRoute);
 
   app.doc("/v1/openapi.json", {
     openapi: "3.1.0",

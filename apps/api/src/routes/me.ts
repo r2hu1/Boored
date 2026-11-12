@@ -70,4 +70,30 @@ meRoute.openapi(getMeRoute, async (c) => {
   );
 });
 
+// DELETE /v1/me (account deletion with cascade cleanup)
+const deleteMeRoute = createRoute({
+  method: "delete",
+  path: "/me",
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({ success: z.boolean() }),
+        },
+      },
+      description: "User account and all data deleted",
+    },
+    401: { description: "Unauthorized" },
+  },
+});
+
+meRoute.openapi(deleteMeRoute, async (c) => {
+  const authUser = c.get("user");
+  const db = getDb();
+
+  await db.delete(users).where(eq(users.id, authUser.sub));
+  return c.json({ success: true }, 200);
+});
+
 export { meRoute };

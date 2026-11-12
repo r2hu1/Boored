@@ -95,7 +95,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (!_isSearching && user != null)
             PopupMenuButton<String>(
               onSelected: (value) {
-                if (value == 'sign_out') {
+                if (value == 'settings') {
+                  context.push('/settings');
+                } else if (value == 'sign_out') {
                   ref.read(authNotifierProvider.notifier).signOut();
                 }
               },
@@ -113,6 +115,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings, size: 20),
+                      SizedBox(width: 8),
+                      Text('Settings'),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'sign_out',
                   child: Row(

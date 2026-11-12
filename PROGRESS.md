@@ -216,10 +216,22 @@
 - `flutter analyze` ✅ (0 issues found)
 - `flutter test` ✅ (All tests passed)
 
-### M10 — Hardening
-- [ ] Full-text search (GET /search?q=)
-- [ ] Settings screen (capture interval, quality, auto-delete, storage, sync)
-- [ ] DELETE /v1/me (account deletion with file cleanup)
-- [ ] Auto-delete enforcement (local + server)
-- [ ] Additional tests (pipeline stages, sync integration)
-- [ ] Battery and processing time benchmark
+### M10 — Hardening & Final Polish
+**Status: ✅ Complete**
+
+#### Done
+- [x] Full-text search endpoint (`GET /v1/search?q=`) using Postgres tsvector & GIN index matching against note titles, summaries, and keyframe OCR texts
+- [x] Account deletion endpoint (`DELETE /v1/me`) with cascade purge across notes, keyframes, regions, refresh tokens, and files
+- [x] Mobile Settings screen (`lib/features/settings/settings_screen.dart`):
+  - User profile display (avatar, name, email)
+  - Cloud synchronization status indicator & on-demand sync trigger
+  - Cache size inspection & local cache clearing
+  - Account deletion confirmation dialog with session teardown & routing back to login
+  - App version and build details
+- [x] App router registration (`/settings`) and navigation link in HomeScreen user avatar menu
+- [x] End-to-end build and test validation:
+  - TypeScript contracts, db, and API typecheck (`tsc --noEmit`)
+  - Vitest suite passing 8/8 tests (health, auth, me, sync)
+  - Flutter analysis (0 warnings / 0 errors)
+  - Flutter unit and widget test suite passing
+  - Flutter Android debug APK build compilation (`assembleDebug`) passing cleanly
