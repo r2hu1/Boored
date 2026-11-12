@@ -29,6 +29,14 @@ class KeyframesDao extends DatabaseAccessor<AppDatabase> with _$KeyframesDaoMixi
     String? thumbnailPath,
     String eventType = 'NONE',
   }) async {
+    // Check if a keyframe for this imagePath already exists for this note
+    final existing = await (select(keyframes)
+          ..where((k) => k.noteId.equals(noteId) & k.imagePath.equals(imagePath)))
+        .getSingleOrNull();
+    if (existing != null) {
+      return existing;
+    }
+
     final id = generateId();
     final companion = KeyframesCompanion.insert(
       id: id,

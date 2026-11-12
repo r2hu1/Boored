@@ -257,10 +257,19 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 
   Widget _buildTimelineTab(List<Keyframe> keyframes) {
-    if (_currentKeyframeIndex >= keyframes.length) {
-      _currentKeyframeIndex = keyframes.length - 1;
+    // Deduplicate keyframes by unique imagePath while preserving sequence order
+    final uniqueKeyframes = <Keyframe>[];
+    final seenPaths = <String>{};
+    for (final kf in keyframes) {
+      if (seenPaths.add(kf.imagePath)) {
+        uniqueKeyframes.add(kf);
+      }
     }
-    final currentKeyframe = keyframes[_currentKeyframeIndex];
+
+    if (_currentKeyframeIndex >= uniqueKeyframes.length) {
+      _currentKeyframeIndex = uniqueKeyframes.isNotEmpty ? uniqueKeyframes.length - 1 : 0;
+    }
+    final currentKeyframe = uniqueKeyframes[_currentKeyframeIndex];
 
     return Column(
       children: [
@@ -272,6 +281,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               child: File(currentKeyframe.imagePath).existsSync()
                   ? Image.file(
                       File(currentKeyframe.imagePath),
+                      key: ValueKey(currentKeyframe.id),
                       fit: BoxFit.contain,
                     )
                   : const Icon(Icons.broken_image, size: 64, color: Colors.white54),
@@ -287,7 +297,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Keyframe ${_currentKeyframeIndex + 1} of ${keyframes.length}',
+                'Keyframe ${_currentKeyframeIndex + 1} of ${uniqueKeyframes.length}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Container(
@@ -321,11 +331,13 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               Slider(
                 value: _currentKeyframeIndex.toDouble(),
                 min: 0,
-                max: (keyframes.length - 1).toDouble(),
-                divisions: keyframes.length > 1 ? keyframes.length - 1 : 1,
-                onChanged: (val) {
-                  setState(() => _currentKeyframeIndex = val.toInt());
-                },
+                max: (uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : 1).toDouble(),
+                divisions: uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : null,
+                onChanged: uniqueKeyframes.length > 1
+                    ? (val) {
+                        setState(() => _currentKeyframeIndex = val.toInt());
+                      }
+                    : null,
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -339,14 +351,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   IconButton(
                     iconSize: 42,
                     icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                    onPressed: () {
-                      setState(() => _isPlaying = !_isPlaying);
-                      if (_isPlaying) _startPlaybackLoop(keyframes);
-                    },
+                    onPressed: uniqueKeyframes.length > 1
+                        ? () {
+                            setState(() => _isPlaying = !_isPlaying);
+                            if (_isPlaying) _startPlaybackLoop(uniqueKeyframes);
+                          }
+                        : null,
                   ),
                   IconButton(
                     icon: const Icon(Icons.skip_next),
-                    onPressed: _currentKeyframeIndex < keyframes.length - 1
+                    onPressed: _currentKeyframeIndex < uniqueKeyframes.length - 1
                         ? () => setState(() => _currentKeyframeIndex++)
                         : null,
                   ),
