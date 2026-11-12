@@ -24,6 +24,9 @@ class NotesRepository {
   Future<void> updateTitle(String noteId, String newTitle) =>
       _dao.updateNote(noteId, title: newTitle);
 
+  Future<void> updateStatus(String noteId, String status, {int? durationMs}) =>
+      _dao.updateNote(noteId, status: status, durationMs: durationMs);
+
   Future<void> deleteNote(String noteId) => _dao.softDeleteNote(noteId);
 
   Future<void> restoreNote(String noteId) => _dao.restoreNote(noteId);

@@ -45,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 },
               )
             : const Text('Boored'),
-        centerTitle: !_isSearching,
+        centerTitle: false,
         leading: _isSearching
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -230,13 +230,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return NoteCard(
           note: note,
           onTap: () {
-            if (note.status == 'recording') {
-              context.push(
-                '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
-              );
-            } else {
-              context.push('/notes/${note.id}');
-            }
+            context.push('/notes/${note.id}');
           },
           onDelete: () {
             ref.read(notesNotifierProvider.notifier).deleteNote(note.id);

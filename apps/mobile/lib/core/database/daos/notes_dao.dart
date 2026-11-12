@@ -53,8 +53,10 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
     String? status,
     int? durationMs,
     DateTime? startedAt,
-  }) {
-    return (update(notes)..where((n) => n.id.equals(noteId))).write(
+  }) async {
+    final existing = await getNoteById(noteId);
+    final nextVersion = (existing?.version ?? 1) + 1;
+    await (update(notes)..where((n) => n.id.equals(noteId))).write(
       NotesCompanion(
         title: title != null ? Value(title) : const Value.absent(),
         status: status != null ? Value(status) : const Value.absent(),
@@ -63,24 +65,34 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
         startedAt:
             startedAt != null ? Value(startedAt) : const Value.absent(),
         updatedAt: Value(DateTime.now()),
-        version: const Value.absent(),
+        version: Value(nextVersion),
+        syncStatus: const Value('pending'),
       ),
     );
   }
 
-  Future<void> softDeleteNote(String noteId) {
-    return (update(notes)..where((n) => n.id.equals(noteId))).write(
+  Future<void> softDeleteNote(String noteId) async {
+    final existing = await getNoteById(noteId);
+    final nextVersion = (existing?.version ?? 1) + 1;
+    await (update(notes)..where((n) => n.id.equals(noteId))).write(
       NotesCompanion(
         deletedAt: Value(DateTime.now()),
         updatedAt: Value(DateTime.now()),
+        version: Value(nextVersion),
+        syncStatus: const Value('pending'),
       ),
     );
   }
 
-  Future<void> restoreNote(String noteId) {
-    return (update(notes)..where((n) => n.id.equals(noteId))).write(
-      const NotesCompanion(
-        deletedAt: Value(null),
+  Future<void> restoreNote(String noteId) async {
+    final existing = await getNoteById(noteId);
+    final nextVersion = (existing?.version ?? 1) + 1;
+    await (update(notes)..where((n) => n.id.equals(noteId))).write(
+      NotesCompanion(
+        deletedAt: const Value(null),
+        updatedAt: Value(DateTime.now()),
+        version: Value(nextVersion),
+        syncStatus: const Value('pending'),
       ),
     );
   }

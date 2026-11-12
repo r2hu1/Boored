@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { notes } from "./notes.js";
 
-export const eventTypeEnum = pgEnum("event_type", ["ADD", "ERASE", "NONE"]);
+export const eventTypeEnum = pgEnum("event_type", ["INITIAL", "ADD", "ERASE", "NONE"]);
 
 export const keyframes = pgTable(
   "keyframes",

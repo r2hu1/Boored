@@ -22,7 +22,7 @@ const KeyframeSyncItem = z.object({
   note_id: z.string().uuid(),
   index: z.number().int(),
   timestamp_ms: z.number().int(),
-  event_type: z.enum(["ADD", "ERASE", "NONE"]).default("NONE"),
+  event_type: z.enum(["INITIAL", "ADD", "ERASE", "NONE"]).default("NONE"),
   image_key: z.string().default("local"),
 });
 
@@ -120,15 +120,24 @@ syncRoute.openapi(pushRoute, async (c) => {
       .limit(1);
 
     if (!existing) {
-      await db.insert(keyframes).values({
-        id: k.id,
-        note_id: k.note_id,
-        index: k.index,
-        timestamp_ms: k.timestamp_ms,
-        event_type: k.event_type,
-        image_key: k.image_key,
-      });
-      acceptedKeyframes++;
+      // Ensure the parent note exists before inserting keyframe to avoid FK violation
+      const [parentNote] = await db
+        .select({ id: notes.id })
+        .from(notes)
+        .where(eq(notes.id, k.note_id))
+        .limit(1);
+
+      if (parentNote) {
+        await db.insert(keyframes).values({
+          id: k.id,
+          note_id: k.note_id,
+          index: k.index,
+          timestamp_ms: k.timestamp_ms,
+          event_type: k.event_type,
+          image_key: k.image_key,
+        });
+        acceptedKeyframes++;
+      }
     }
   }
 

@@ -95,16 +95,19 @@ class CaptureNotifier extends Notifier<CaptureState> {
   Future<void> startRecording(
     String noteId, {
     List<BoardCorner>? corners,
+    bool resume = false,
   }) async {
     _service ??= CaptureService();
-    _policyManager.reset();
+    if (!resume) {
+      _policyManager.reset();
+    }
 
     state = state.copyWith(
       phase: CapturePhase.recording,
       noteId: noteId,
-      framesCaptured: state.framesCaptured,
-      keyframesSaved: state.keyframesSaved,
-      elapsed: state.elapsed,
+      framesCaptured: resume ? state.framesCaptured : 0,
+      keyframesSaved: resume ? state.keyframesSaved : 0,
+      elapsed: resume ? state.elapsed : Duration.zero,
     );
 
     await WakelockPlus.enable();
@@ -119,6 +122,7 @@ class CaptureNotifier extends Notifier<CaptureState> {
     await _service!.startCapture(
       noteId: noteId,
       interval: Duration(seconds: state.intervalSeconds),
+      resume: resume,
       onFrameCaptured: (index, rawPath) async {
         String activePath = rawPath;
 
@@ -190,18 +194,16 @@ class CaptureNotifier extends Notifier<CaptureState> {
     state = state.copyWith(phase: CapturePhase.paused);
   }
 
-  Future<void> stopRecording() async {
-    state = state.copyWith(phase: CapturePhase.stopping);
+  Future<void> finishRecording() async {
     _elapsedTimer?.cancel();
     _elapsedTimer = null;
-
     await _service?.stopCapture();
     await WakelockPlus.disable();
 
     if (state.noteId != null) {
       try {
         final repo = ref.read(notesRepositoryProvider);
-        await repo.updateTitle(state.noteId!, state.noteId!);
+        await repo.updateStatus(state.noteId!, 'ready', durationMs: state.elapsed.inMilliseconds);
       } catch (_) {}
     }
 

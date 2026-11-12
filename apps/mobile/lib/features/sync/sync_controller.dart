@@ -43,15 +43,23 @@ class SyncNotifier extends Notifier<SyncState> {
   SyncState build() {
     _apiClient = ApiClient();
     _db = ref.watch(databaseProvider);
-    _checkPendingCount();
+    Future.microtask(() => _checkPendingCount());
     return const SyncState();
   }
 
   Future<void> _checkPendingCount() async {
+    final user = ref.read(authNotifierProvider).user;
+    if (user == null) {
+      state = state.copyWith(pendingCount: 0);
+      return;
+    }
     final pendingNotes = await (_db.select(_db.notes)
-          ..where((n) => n.syncStatus.equals('pending')))
+          ..where((n) => n.syncStatus.equals('pending') & n.userId.equals(user.id)))
         .get();
-    state = state.copyWith(pendingCount: pendingNotes.length);
+    final pendingKeyframes = await (_db.select(_db.keyframes)
+          ..where((k) => k.syncStatus.equals('pending')))
+        .get();
+    state = state.copyWith(pendingCount: pendingNotes.length + pendingKeyframes.length);
   }
 
   Future<void> syncNow() async {
@@ -137,17 +145,20 @@ class SyncNotifier extends Notifier<SyncState> {
               );
             }
           } else {
-            await _db.into(_db.notes).insert(
-                  NotesCompanion.insert(
-                    id: noteId,
-                    userId: user.id,
-                    title: title,
-                    status: Value(status),
-                    version: Value(version),
-                    deletedAt: Value(deletedAt),
-                    syncStatus: const Value('synced'),
-                  ),
-                );
+            // Only insert non-deleted notes from remote
+            if (deletedAt == null) {
+              await _db.into(_db.notes).insert(
+                    NotesCompanion.insert(
+                      id: noteId,
+                      userId: user.id,
+                      title: title,
+                      status: Value(status),
+                      version: Value(version),
+                      deletedAt: const Value(null),
+                      syncStatus: const Value('synced'),
+                    ),
+                  );
+            }
           }
         }
       }

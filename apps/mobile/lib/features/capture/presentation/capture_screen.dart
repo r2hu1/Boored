@@ -302,40 +302,56 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           .read(captureNotifierProvider.notifier)
                           .setInterval(v),
                     ),
-                    // Record / Stop button
+                    // Record / Pause button
                     _RecordButton(
                       isRecording:
                           captureState.phase == CapturePhase.recording,
+                      isPaused: captureState.phase == CapturePhase.paused,
                       enabled: captureState.phase == CapturePhase.previewing ||
-                          captureState.phase == CapturePhase.recording,
+                          captureState.phase == CapturePhase.recording ||
+                          captureState.phase == CapturePhase.paused,
                       onPressed: () => _toggleRecording(captureState),
                     ),
-                    // Frame & Keyframe counters
-                    SizedBox(
-                      width: 80,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${captureState.keyframesSaved} keyframes',
-                            style: const TextStyle(
-                              color: Colors.amberAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                    // Finish button when paused or recording
+                    if (captureState.phase == CapturePhase.paused ||
+                        captureState.phase == CapturePhase.recording ||
+                        captureState.framesCaptured > 0)
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          padding: const EdgeInsets.all(12),
+                        ),
+                        icon: const Icon(Icons.check, color: Colors.white, size: 28),
+                        tooltip: 'Finish Recording',
+                        onPressed: () => _finishRecording(),
+                      )
+                    else
+                      // Frame & Keyframe counters
+                      SizedBox(
+                        width: 80,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${captureState.keyframesSaved} keyframes',
+                              style: const TextStyle(
+                                color: Colors.amberAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            '${captureState.framesCaptured} frames',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 10,
+                            Text(
+                              '${captureState.framesCaptured} frames',
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -350,9 +366,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     final notifier = ref.read(captureNotifierProvider.notifier);
     if (captureState.phase == CapturePhase.recording) {
       notifier.pauseRecording();
-    } else if (captureState.phase == CapturePhase.previewing ||
-        captureState.phase == CapturePhase.paused) {
-      notifier.startRecording(widget.noteId, corners: _corners);
+    } else if (captureState.phase == CapturePhase.paused) {
+      notifier.startRecording(widget.noteId, corners: _corners, resume: true);
+    } else if (captureState.phase == CapturePhase.previewing) {
+      notifier.startRecording(widget.noteId, corners: _corners, resume: false);
+    }
+  }
+
+  Future<void> _finishRecording() async {
+    await ref.read(captureNotifierProvider.notifier).finishRecording();
+    if (mounted) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -413,11 +437,13 @@ class _RecordingBadge extends StatelessWidget {
 
 class _RecordButton extends StatelessWidget {
   final bool isRecording;
+  final bool isPaused;
   final bool enabled;
   final VoidCallback onPressed;
 
   const _RecordButton({
     required this.isRecording,
+    this.isPaused = false,
     required this.enabled,
     required this.onPressed,
   });
@@ -434,12 +460,21 @@ class _RecordButton extends StatelessWidget {
           border: Border.all(color: Colors.white, width: 4),
         ),
         padding: const EdgeInsets.all(4),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: isRecording ? Colors.red : Colors.red.shade300,
-            shape: isRecording ? BoxShape.rectangle : BoxShape.circle,
-            borderRadius: isRecording ? BorderRadius.circular(8) : null,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: isRecording ? 28 : (isPaused ? 48 : 56),
+            height: isRecording ? 28 : (isPaused ? 48 : 56),
+            decoration: BoxDecoration(
+              color: isRecording ? Colors.red : (isPaused ? Colors.amber : Colors.red.shade400),
+              shape: isRecording ? BoxShape.rectangle : BoxShape.circle,
+              borderRadius: isRecording ? BorderRadius.circular(6) : null,
+            ),
+            child: isPaused
+                ? const Icon(Icons.play_arrow, color: Colors.black, size: 30)
+                : (isRecording
+                    ? const Icon(Icons.pause, color: Colors.white, size: 20)
+                    : null),
           ),
         ),
       ),

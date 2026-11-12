@@ -49,6 +49,7 @@ class CaptureService {
     Duration interval = const Duration(seconds: 5),
     void Function(int frameIndex, String path)? onFrameCaptured,
     void Function(Object error)? onError,
+    bool resume = false,
   }) async {
     if (_isCapturing) return;
     if (_controller == null || !_controller!.value.isInitialized) {
@@ -56,7 +57,9 @@ class CaptureService {
     }
 
     _sessionDir = await _createSessionDir(noteId);
-    _frameIndex = 0;
+    if (!resume) {
+      _frameIndex = 0;
+    }
     _isCapturing = true;
 
     // Capture first frame immediately
