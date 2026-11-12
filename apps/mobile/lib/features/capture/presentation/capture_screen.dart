@@ -310,14 +310,30 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           captureState.phase == CapturePhase.recording,
                       onPressed: () => _toggleRecording(captureState),
                     ),
-                    // Frame count
+                    // Frame & Keyframe counters
                     SizedBox(
-                      width: 72,
-                      child: Text(
-                        '${captureState.framesCaptured} frames',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 12),
-                        textAlign: TextAlign.center,
+                      width: 80,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${captureState.keyframesSaved} keyframes',
+                            style: const TextStyle(
+                              color: Colors.amberAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          Text(
+                            '${captureState.framesCaptured} frames',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 10,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     ),
                   ],

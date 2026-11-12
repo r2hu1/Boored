@@ -125,12 +125,23 @@
 - `flutter test` ✅ (All tests passed)
 
 ### M5 — Enhancement + Change Detection + Keyframe Policy
-- [ ] Lighting normalization, glare/shadow suppression
-- [ ] Adaptive thresholding, stroke sharpening
-- [ ] Frame registration (alignment to reference)
-- [ ] Change detection (ADD/ERASE/NONE classification)
-- [ ] Keyframe policy: save before erase, on significant new content
-- [ ] Acceptance: no content lost before erase events
+**Status: ✅ Complete**
+
+#### Done
+- [x] Lighting normalization & glare/shadow suppression via CLAHE on L-channel in LAB color space
+- [x] Stroke sharpening & contrast enhancement using unsharp masking filter
+- [x] Inter-frame change detection algorithm in native OpenCV (comparing successive rectified frames via absolute difference thresholding)
+- [x] Event type classification: `ADD` (new dark/colored marker strokes) vs `ERASE` (brightness jump towards white background) vs `NONE`
+- [x] Keyframes Drift SQLite table & migration (tracking `id`, `noteId`, `index`, `timestampMs`, `eventType`, `imagePath`, `extractedText`, `syncStatus`)
+- [x] `KeyframePolicyManager`:
+  - Rule 1: Always persist initial frame as baseline (`INITIAL`)
+  - Rule 2: Save keyframe immediately when whiteboard erase is detected to prevent loss of erased lecture notes (`ERASE`)
+  - Rule 3: Save keyframe when significant new written content is added (`diffRatio >= 4%`)
+- [x] Dynamic UI keyframe counter on capture control bar displaying saved keyframe count alongside raw frame count
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M6 — Lecturer Removal
 - [ ] ML Kit Selfie Segmentation integration

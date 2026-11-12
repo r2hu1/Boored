@@ -1,6 +1,16 @@
 import 'package:flutter/services.dart';
 import '../presentation/widgets/board_overlay.dart';
 
+class FrameChangeResult {
+  final String eventType; // "ADD", "ERASE", "NONE"
+  final double diffRatio;
+
+  const FrameChangeResult({
+    required this.eventType,
+    required this.diffRatio,
+  });
+}
+
 class OpenCVService {
   static const _channel = MethodChannel('com.boored.boored/opencv');
 
@@ -46,6 +56,50 @@ class OpenCVService {
       return result;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<String?> enhanceWhiteboard({
+    required String srcPath,
+    required String dstPath,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>(
+        'enhanceWhiteboard',
+        {
+          'srcPath': srcPath,
+          'dstPath': dstPath,
+        },
+      );
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<FrameChangeResult> detectFrameChange({
+    required String prevPath,
+    required String currPath,
+  }) async {
+    try {
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'detectFrameChange',
+        {
+          'prevPath': prevPath,
+          'currPath': currPath,
+        },
+      );
+
+      if (result == null) {
+        return const FrameChangeResult(eventType: 'NONE', diffRatio: 0.0);
+      }
+
+      return FrameChangeResult(
+        eventType: (result['eventType'] as String?) ?? 'NONE',
+        diffRatio: ((result['diffRatio'] as num?) ?? 0.0).toDouble(),
+      );
+    } catch (_) {
+      return const FrameChangeResult(eventType: 'NONE', diffRatio: 0.0);
     }
   }
 

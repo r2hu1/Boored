@@ -23,13 +23,37 @@ class Notes extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Notes])
+class Keyframes extends Table {
+  TextColumn get id => text()();
+  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  IntColumn get index => integer()();
+  IntColumn get timestampMs => integer()();
+  TextColumn get eventType => text().withDefault(const Constant('NONE'))();
+  TextColumn get imagePath => text()();
+  TextColumn get thumbnailPath => text().nullable()();
+  TextColumn get extractedText => text().nullable()();
+  TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Notes, Keyframes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(keyframes);
+          }
+        },
+      );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(name: 'boored');

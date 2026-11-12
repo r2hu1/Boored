@@ -17,6 +17,7 @@ import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -37,6 +38,8 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "detectBoardCorners" -> handleDetectCorners(call, result)
                 "warpPerspective" -> handleWarpPerspective(call, result)
+                "enhanceWhiteboard" -> handleEnhance(call, result)
+                "detectFrameChange" -> handleDetectChange(call, result)
                 else -> result.notImplemented()
             }
         }
@@ -82,6 +85,56 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("WARP_FAILED", "Failed to warp image", null)
                     }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("OPENCV_ERROR", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun handleEnhance(call: MethodCall, result: MethodChannel.Result) {
+        val srcPath = call.argument<String>("srcPath")
+        val dstPath = call.argument<String>("dstPath")
+
+        if (srcPath == null || dstPath == null) {
+            result.error("INVALID_ARGUMENT", "srcPath and dstPath are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val success = enhanceWhiteboardNative(srcPath, dstPath)
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        result.success(dstPath)
+                    } else {
+                        result.error("ENHANCE_FAILED", "Failed to enhance image", null)
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("OPENCV_ERROR", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun handleDetectChange(call: MethodCall, result: MethodChannel.Result) {
+        val prevPath = call.argument<String>("prevPath")
+        val currPath = call.argument<String>("currPath")
+
+        if (prevPath == null || currPath == null) {
+            result.error("INVALID_ARGUMENT", "prevPath and currPath are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val changeData = detectChangeNative(prevPath, currPath)
+                withContext(Dispatchers.Main) {
+                    result.success(changeData)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -139,7 +192,6 @@ class MainActivity : FlutterActivity() {
         val orderedPoints = if (foundCorners != null && foundCorners.size == 4) {
             orderPoints(foundCorners)
         } else {
-            // Fallback default normalized quadrilateral (10% padding)
             arrayOf(
                 Point(originalWidth * 0.08, originalHeight * 0.08),
                 Point(originalWidth * 0.92, originalHeight * 0.08),
@@ -217,6 +269,105 @@ class MainActivity : FlutterActivity() {
         dstMat2f.release()
 
         return true
+    }
+
+    private fun enhanceWhiteboardNative(srcPath: String, dstPath: String): Boolean {
+        val bitmap = BitmapFactory.decodeFile(srcPath) ?: return false
+        val bgr = Mat()
+        Utils.bitmapToMat(bitmap, bgr)
+        bitmap.recycle()
+
+        // 1. Convert to LAB color space for lighting normalization
+        val lab = Mat()
+        Imgproc.cvtColor(bgr, lab, Imgproc.COLOR_BGR2Lab)
+        val labPlanes = ArrayList<Mat>(3)
+        Core.split(lab, labPlanes)
+
+        // CLAHE (Contrast Limited Adaptive Histogram Equalization) on L-channel
+        val clahe = Imgproc.createCLAHE(2.0, Size(8.0, 8.0))
+        clahe.apply(labPlanes[0], labPlanes[0])
+        Core.merge(labPlanes, lab)
+        Imgproc.cvtColor(lab, bgr, Imgproc.COLOR_Lab2BGR)
+
+        // 2. Stroke sharpening using unsharp mask
+        val blurred = Mat()
+        Imgproc.GaussianBlur(bgr, blurred, Size(0.0, 0.0), 3.0)
+        Core.addWeighted(bgr, 1.5, blurred, -0.5, 0.0, bgr)
+
+        val outBitmap = Bitmap.createBitmap(bgr.cols(), bgr.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(bgr, outBitmap)
+
+        val file = File(dstPath)
+        file.parentFile?.mkdirs()
+        FileOutputStream(file).use { out ->
+            outBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+        }
+
+        outBitmap.recycle()
+        bgr.release()
+        lab.release()
+        blurred.release()
+        for (p in labPlanes) p.release()
+
+        return true
+    }
+
+    private fun detectChangeNative(prevPath: String, currPath: String): Map<String, Any> {
+        val prevBmp = BitmapFactory.decodeFile(prevPath)
+            ?: return mapOf("eventType" to "NONE", "diffRatio" to 0.0)
+        val currBmp = BitmapFactory.decodeFile(currPath)
+            ?: return mapOf("eventType" to "NONE", "diffRatio" to 0.0)
+
+        val prevMat = Mat()
+        val currMat = Mat()
+        Utils.bitmapToMat(prevBmp, prevMat)
+        Utils.bitmapToMat(currBmp, currMat)
+        prevBmp.recycle()
+        currBmp.recycle()
+
+        if (prevMat.size() != currMat.size()) {
+            Imgproc.resize(currMat, currMat, prevMat.size())
+        }
+
+        val prevGray = Mat()
+        val currGray = Mat()
+        Imgproc.cvtColor(prevMat, prevGray, Imgproc.COLOR_BGR2GRAY)
+        Imgproc.cvtColor(currMat, currGray, Imgproc.COLOR_BGR2GRAY)
+
+        val diff = Mat()
+        Core.absdiff(prevGray, currGray, diff)
+
+        val thresh = Mat()
+        Imgproc.threshold(diff, thresh, 30.0, 255.0, Imgproc.THRESH_BINARY)
+
+        val totalPixels = (thresh.rows() * thresh.cols()).toDouble()
+        val changedPixels = Core.countNonZero(thresh).toDouble()
+        val diffRatio = changedPixels / totalPixels
+
+        // Determine ADD vs ERASE based on mean brightness shift in changed areas
+        var eventType = "NONE"
+        if (diffRatio > 0.02) { // More than 2% changed
+            val prevMean = Core.mean(prevGray, thresh).`val`[0]
+            val currMean = Core.mean(currGray, thresh).`val`[0]
+
+            eventType = if (currMean > prevMean + 5) {
+                "ERASE" // Area became significantly brighter (ink wiped off to white board)
+            } else {
+                "ADD" // New ink written (darker or colored)
+            }
+        }
+
+        prevMat.release()
+        currMat.release()
+        prevGray.release()
+        currGray.release()
+        diff.release()
+        thresh.release()
+
+        return mapOf(
+            "eventType" to eventType,
+            "diffRatio" to diffRatio
+        )
     }
 
     private fun distance(p1: Point, p2: Point): Double {
