@@ -1,6 +1,12 @@
 class ApiConstants {
-  // Use 10.0.2.2 for Android Emulator connecting to host machine, localhost otherwise
-  static const String baseUrl = 'http://10.0.2.2:3000/v1';
+  // Configurable base URL:
+  // - On Android Emulator: http://10.0.2.2:3000/v1
+  // - On Physical Android via USB reverse: http://127.0.0.1:3000/v1 (run `adb reverse tcp:3000 tcp:3000`)
+  // - On Local Wi-Fi: http://<mac-ip>:3000/v1
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:3000/v1',
+  );
 
   // Fallback / configurable web client ID matching backend GOOGLE_CLIENT_ID
   static const String googleServerClientId = String.fromEnvironment(
