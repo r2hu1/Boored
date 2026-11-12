@@ -108,10 +108,21 @@
 - `flutter test` ✅ (All tests passed)
 
 ### M4 — Board Corners + Rectification
-- [ ] Automatic four-corner detection (OpenCV via platform channels)
-- [ ] Perspective transform to flat image
-- [ ] Manual correction fallback
-- [ ] Periodic re-check during capture
+**Status: ✅ Complete**
+
+#### Done
+- [x] Native OpenCV Android integration via Gradle (`com.quickbirdstudios:opencv:4.5.3.0`)
+- [x] Kotlin MethodChannel bridge (`com.boored.boored/opencv`) for computer vision operations
+- [x] Automatic 4-corner board detection via Canny edge detection, contour approximation, and quadrilateral classification
+- [x] Normalized corner ordering algorithm (top-left, top-right, bottom-right, bottom-left)
+- [x] Perspective warp transform (`Imgproc.warpPerspective`) unwarping camera angles into flat, rectified whiteboard frames
+- [x] Dart `OpenCVService` wrapper interface connecting UI with native OpenCV routines
+- [x] Live capture UI with automatic corner detection button + manual drag handles fallback
+- [x] Real-time rectification pipeline: each periodic raw frame captured is automatically warped to `_rectified.jpg` using selected/detected corner polygon
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M5 — Enhancement + Change Detection + Keyframe Policy
 - [ ] Lighting normalization, glare/shadow suppression
