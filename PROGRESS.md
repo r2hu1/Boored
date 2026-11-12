@@ -64,11 +64,32 @@
 ## Remaining Milestones
 
 ### M2 — Home Screen + Local SQLite Notes CRUD
-- [ ] Drift database setup with note tables
-- [ ] Notes CRUD in Drift (create, read, update, soft delete)
-- [ ] Home screen: note cards with title, date, status chip
-- [ ] Search by title
-- [ ] New note / rename / delete flows
+**Status: ✅ Complete**
+
+#### Done
+- [x] Drift database setup (`lib/core/database/app_database.dart`) with Notes table mirroring backend schema
+- [x] Code generation via build_runner (app_database.g.dart, notes_dao.g.dart)
+- [x] NotesDao with full CRUD: watch, search, create, update, soft delete, restore, permanent delete
+- [x] Database Riverpod provider with singleton lifecycle
+- [x] NotesRepository wrapping DAO with clean API
+- [x] NotesNotifier with reactive stream subscription, search, create, delete, restore
+- [x] Home screen: note cards list, search bar, user avatar menu, empty/loading/error states
+- [x] NoteCard widget with status chip and swipe-to-delete with undo
+- [x] CreateNoteDialog with validation
+- [x] NoteDetailScreen placeholder with rename and delete actions
+- [x] Router updated with `/notes/:id` route
+- [x] Relative time formatting utility
+- [x] syncStatus column on Notes table for future M9 sync tracking
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues)
+- `flutter test` ✅ (2/2 tests pass)
+- `pnpm typecheck` ✅ (backend unaffected)
+- `dart run build_runner build` ✅ (45 outputs)
+
+#### Dependencies Added
+- drift ^2.35.4, drift_flutter ^0.3.0, sqlite3_flutter_libs ^0.6.0, uuid ^4.5.1
+- Dev: drift_dev ^2.35.1, build_runner ^2.4.0
 
 ### M3 — Camera Setup + Live Capture
 - [ ] Camera preview with board outline overlay
