@@ -1,28 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/presentation/auth_controller.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final user = ref.watch(authNotifierProvider).user;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Boored'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () => ref.read(authNotifierProvider.notifier).signOut(),
+          ),
+        ],
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.dashboard_outlined,
-              size: 64,
-              color: theme.colorScheme.primary,
-            ),
+            if (user?.avatarUrl != null)
+              CircleAvatar(
+                radius: 36,
+                backgroundImage: NetworkImage(user!.avatarUrl!),
+              )
+            else
+              Icon(
+                Icons.dashboard_outlined,
+                size: 64,
+                color: theme.colorScheme.primary,
+              ),
             const SizedBox(height: 16),
             Text(
-              'Your Notes',
+              user != null ? 'Welcome, ${user.name}' : 'Your Notes',
               style: theme.textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
