@@ -44,6 +44,11 @@ kotlin {
     }
 }
 
+dependencies {
+    implementation("com.quickbirdstudios:opencv:4.5.3.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+}
+
 flutter {
     source = "../.."
 }
