@@ -214,8 +214,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (_) => const CreateNoteDialog(),
     );
-    if (title != null && title.isNotEmpty && mounted) {
-      await ref.read(notesNotifierProvider.notifier).createNote(title);
+    if (!mounted || title == null || title.isEmpty) return;
+
+    final note = await ref.read(notesNotifierProvider.notifier).createNote(title);
+    if (!mounted || note == null) return;
+
+    if (context.mounted) {
+      context.push('/capture/${note.id}?title=${Uri.encodeComponent(note.title)}');
     }
   }
 }
