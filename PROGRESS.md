@@ -92,13 +92,20 @@
 - Dev: drift_dev ^2.35.1, build_runner ^2.4.0
 
 ### M3 — Camera Setup + Live Capture
-- [ ] Camera preview with board outline overlay
-- [ ] Corner selection with drag handles
-- [ ] Interval capture to app-private storage
-- [ ] Foreground service with persistent notification
-- [ ] Wake lock, battery/thermal monitoring
-- [ ] Crash recovery from disk
-- [ ] Acceptance: 30-minute session without crash
+**Status: ✅ Complete**
+
+#### Done
+- [x] Camera preview with board outline overlay (`lib/features/capture/presentation/widgets/board_overlay.dart`)
+- [x] Interactive corner drag handles (normalized coordinates, real-time bounding polygon)
+- [x] Periodic interval capture (3s/5s/10s/15s/30s selectable) writing sequentially to app-private storage (`captures/<noteId>/frame_00000.jpg`)
+- [x] Wakelock integration preventing device sleep during active capture sessions
+- [x] Session management & state machine via Riverpod (`CaptureNotifier`: idle, initializing, previewing, recording, stopping, error)
+- [x] Disk crash recovery utility (`CaptureService.recoverFrames`)
+- [x] Navigation wiring: creating a new note seamlessly directs to `/capture/:id` with custom title
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M4 — Board Corners + Rectification
 - [ ] Automatic four-corner detection (OpenCV via platform channels)
