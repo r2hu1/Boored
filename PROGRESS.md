@@ -3,13 +3,14 @@
 ## Decisions Log
 - MinIO for local S3 dev (AGPL, infra only)
 - Post-processing only for lecturer removal (no realtime preview)
-- Riverpod for state management
+- Riverpod for state management (modern Notifier/NotifierProvider pattern)
 - ML Kit Selfie Segmentation behind swappable interface
 - Platform channels + native OpenCV Android SDK for image processing
 - minSdk 24, targetSdk/compileSdk 35
 - swagger_parser for Dart client generation
 - jose for JWT/Google token verification
 - Drift for local SQLite
+- Google Sign-In v7.2+ API (GoogleSignIn.instance, initialize(), authenticate())
 
 ---
 
@@ -27,38 +28,40 @@
 - [x] README with one-command local setup
 - [x] docs/ADR-001-architecture.md + docs/setup-guide.md
 
-### Verification Results
-- `pnpm install` ✅
-- `pnpm typecheck` ✅ (all 3 packages pass)
-- `pnpm test` ✅ (health route test passes)
-- `pnpm db:generate` ✅ (migration SQL generated)
-- `flutter analyze` ✅ (no issues)
-- `flutter test` ✅ (home screen test passes)
-- `pnpm infra:up` ⚠️ Docker daemon not running on this machine (compose file is valid)
+---
 
-### How to Run
-```bash
-cp .env.example .env
-pnpm install
-pnpm infra:up        # needs Docker running
-pnpm db:migrate      # needs Postgres running
-pnpm dev             # starts API at http://localhost:3000
-cd apps/mobile && flutter run  # starts Flutter app
-```
+## M1 — Google Login End to End
+**Status: ✅ Complete**
+
+### Done
+- [x] Google Cloud Console setup guide with actual keystore debug SHA-1 — `docs/google-auth-setup.md`
+- [x] Hono API auth routes in `apps/api/src/routes/auth.ts`:
+  - `POST /v1/auth/google`: Verifies Google ID token, upserts user by `google_sub`, issues access token + hashed rotating refresh token
+  - `POST /v1/auth/refresh`: Rotates refresh token, detects reuse of revoked tokens, revokes whole token family on breach
+  - `POST /v1/auth/logout`: Revokes refresh token
+- [x] Hono API user profile route in `apps/api/src/routes/me.ts`:
+  - `GET /v1/me`: Authenticated endpoint scoped strictly by verified JWT access token subject (`c.get("user").sub`)
+- [x] Auth middleware `requireAuth` in `apps/api/src/middleware/auth.ts`
+- [x] Vitest route integration tests in `apps/api/src/__tests__/auth.test.ts` (all 4 tests pass against local DB)
+- [x] Flutter Client Auth Integration:
+  - `TokenStorage` with `flutter_secure_storage` (`apps/mobile/lib/core/storage/token_storage.dart`)
+  - `AuthInterceptor` with Dio queued interceptor for automatic 401 token refresh & retry (`apps/mobile/lib/core/network/auth_interceptor.dart`)
+  - `ApiClient` with baseUrl and timeout configuration (`apps/mobile/lib/core/network/api_client.dart`)
+  - `AuthRepository` with `google_sign_in` 7.2.0 singleton API (`apps/mobile/lib/features/auth/data/auth_repository.dart`)
+  - `AuthNotifier` Riverpod state management (`apps/mobile/lib/features/auth/presentation/auth_controller.dart`)
+  - `LoginScreen` UI with loading and error states (`apps/mobile/lib/features/auth/presentation/login_screen.dart`)
+  - `routerProvider` route guards redirecting unauthenticated users to `/login`
+  - Widget tests for `HomeScreen` and `LoginScreen` (`apps/mobile/test/`)
+
+### Verification Results
+- `pnpm typecheck` ✅ (0 errors across contracts, db, api)
+- `pnpm test` ✅ (5/5 tests passing: health + auth/me integration tests)
+- `flutter analyze` ✅ (0 errors, 0 warnings)
+- `flutter test` ✅ (all widget tests passing)
 
 ---
 
 ## Remaining Milestones
-
-### M1 — Google Login End to End
-- [ ] Google Cloud Console setup (OAuth client IDs, SHA-1 fingerprints)
-- [ ] Flutter: google_sign_in integration
-- [ ] API: POST /v1/auth/google (verify ID token, upsert user, issue tokens)
-- [ ] API: POST /v1/auth/refresh, POST /v1/auth/logout
-- [ ] API: GET /v1/me
-- [ ] Auth middleware (JWT verification, user scoping)
-- [ ] Flutter: token storage + auto-refresh interceptor
-- [ ] Refresh token rotation with family-based reuse detection
 
 ### M2 — Home Screen + Local SQLite Notes CRUD
 - [ ] Drift database setup with note tables
