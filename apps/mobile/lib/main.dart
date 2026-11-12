@@ -1,17 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'core/constants/api_constants.dart';
 import 'app/router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Explicitly initialize GoogleSignIn before UI runs
+  await GoogleSignIn.instance.initialize(
+    serverClientId: ApiConstants.googleServerClientId.isNotEmpty
+        ? ApiConstants.googleServerClientId
+        : null,
+  );
+
   runApp(const ProviderScope(child: BooredApp()));
 }
 
-class BooredApp extends StatelessWidget {
+class BooredApp extends ConsumerWidget {
   const BooredApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
       title: 'Boored',
       debugShowCheckedModeBanner: false,
