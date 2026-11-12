@@ -199,8 +199,17 @@ class MainActivity : FlutterActivity() {
         Imgproc.cvtColor(mat, gray, Imgproc.COLOR_BGR2GRAY)
         Imgproc.GaussianBlur(gray, gray, Size(5.0, 5.0), 0.0)
 
+        // Enhance contrast using CLAHE to separate whiteboard borders under classroom light
+        val clahe = Imgproc.createCLAHE(3.0, Size(8.0, 8.0))
+        val contrasted = Mat()
+        clahe.apply(gray, contrasted)
+
+        // Multiple thresholding stages: Canny + adaptive threshold to detect whiteboard frame edges
         val edges = Mat()
-        Imgproc.Canny(gray, edges, 75.0, 200.0)
+        Imgproc.Canny(contrasted, edges, 30.0, 120.0)
+        // Dilate slightly to connect broken board boundary edges
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
+        Imgproc.dilate(edges, edges, kernel)
 
         val contours = ArrayList<MatOfPoint>()
         val hierarchy = Mat()
@@ -210,23 +219,29 @@ class MainActivity : FlutterActivity() {
 
         var foundCorners: Array<Point>? = null
 
-        for (contour in contours.take(10)) {
+        for (contour in contours.take(20)) {
             val peri = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
-            val approx = MatOfPoint2f()
-            Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approx, 0.02 * peri, true)
+            for (eps in doubleArrayOf(0.02, 0.03, 0.04, 0.05)) {
+                val approx = MatOfPoint2f()
+                Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approx, eps * peri, true)
 
-            if (approx.total() == 4L) {
-                val area = Imgproc.contourArea(approx)
-                if (area > (originalWidth * originalHeight * 0.15)) {
-                    foundCorners = approx.toArray()
-                    break
+                if (approx.total() == 4L) {
+                    val area = Imgproc.contourArea(approx)
+                    // Must be a significant quadrilateral covering >= 10% of frame
+                    if (area > (originalWidth * originalHeight * 0.10)) {
+                        foundCorners = approx.toArray()
+                        break
+                    }
                 }
             }
+            if (foundCorners != null) break
         }
 
         mat.release()
         gray.release()
+        contrasted.release()
         edges.release()
+        kernel.release()
         hierarchy.release()
 
         val orderedPoints = if (foundCorners != null && foundCorners.size == 4) {

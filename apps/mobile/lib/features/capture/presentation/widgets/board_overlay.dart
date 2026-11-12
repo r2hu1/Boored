@@ -47,13 +47,15 @@ class BoardOverlay extends StatelessWidget {
   }
 
   Widget _buildCornerHandle(int index, Size size) {
-    const handleRadius = 18.0;
+    const handleRadius = 24.0;
+    const hitAreaSize = 56.0;
     final pos = corners[index].toOffset(size);
 
     return Positioned(
-      left: pos.dx - handleRadius,
-      top: pos.dy - handleRadius,
+      left: pos.dx - hitAreaSize / 2,
+      top: pos.dy - hitAreaSize / 2,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onPanUpdate: (details) {
           final newDx = (pos.dx + details.delta.dx).clamp(0.0, size.width);
           final newDy = (pos.dy + details.delta.dy).clamp(0.0, size.height);
@@ -63,27 +65,32 @@ class BoardOverlay extends StatelessWidget {
           onCornersChanged(updated);
         },
         child: Container(
-          width: handleRadius * 2,
-          height: handleRadius * 2,
-          decoration: BoxDecoration(
-            color: Colors.amberAccent.withValues(alpha: 0.8),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+          width: hitAreaSize,
+          height: hitAreaSize,
+          alignment: Alignment.center,
+          child: Container(
+            width: handleRadius * 2,
+            height: handleRadius * 2,
+            decoration: BoxDecoration(
+              color: Colors.amberAccent,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
