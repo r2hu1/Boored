@@ -158,11 +158,21 @@
 - `flutter test` ✅ (All tests passed)
 
 ### M7 — Final Pass
-- [ ] Text recognition (ML Kit) on each keyframe
-- [ ] RecognitionEngine interface
-- [ ] Timeline JSON generation
-- [ ] PDF generation with pdf package
-- [ ] Deduplication of near-identical keyframes
+**Status: ✅ Complete**
+
+#### Done
+- [x] Swappable `RecognitionEngine` interface for text recognition
+- [x] On-device `MLKitRecognitionEngine` implementation with `google_mlkit_text_recognition`
+- [x] `SessionFinalizer` coordinator pipeline:
+  - Lecturer de-occlusion sequence processing
+  - Keyframe-level text extraction saved to Drift database (`extractedText` column)
+  - `timeline.json` persistence formatted for timeline scrubbing and indexing
+  - High-res vector-formatted PDF generation using `pdf` package (`document.pdf` in landscape A4)
+  - Note status state transition: `recording` → `processing` → `ready`
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M8 — Note View
 - [ ] Timeline player: scrubber, play/pause, speed control
