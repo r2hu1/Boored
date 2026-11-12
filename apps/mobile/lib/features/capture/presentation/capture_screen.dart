@@ -194,25 +194,24 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                       MediaQuery.of(context).size.width,
                   height: _cameraController!.value.previewSize?.width ??
                       MediaQuery.of(context).size.height,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CameraPreview(_cameraController!),
-                      if (_showOverlay)
-                        BoardOverlay(
-                          corners: _corners,
-                          editable: captureState.phase != CapturePhase.recording,
-                          onCornersChanged: (corners) {
-                            setState(() => _corners = corners);
-                          },
-                        ),
-                    ],
-                  ),
+                  child: CameraPreview(_cameraController!),
                 ),
               ),
             )
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
+
+          // Board cropping overlay sitting directly on viewport coordinates
+          if (_showOverlay)
+            Positioned.fill(
+              child: BoardOverlay(
+                corners: _corners,
+                editable: captureState.phase != CapturePhase.recording,
+                onCornersChanged: (corners) {
+                  setState(() => _corners = corners);
+                },
+              ),
+            ),
 
           // Top bar
           Positioned(
