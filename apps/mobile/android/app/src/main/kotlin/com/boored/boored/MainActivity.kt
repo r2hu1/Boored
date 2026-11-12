@@ -40,6 +40,7 @@ class MainActivity : FlutterActivity() {
                 "warpPerspective" -> handleWarpPerspective(call, result)
                 "enhanceWhiteboard" -> handleEnhance(call, result)
                 "detectFrameChange" -> handleDetectChange(call, result)
+                "compositeUnoccluded" -> handleComposite(call, result)
                 else -> result.notImplemented()
             }
         }
@@ -135,6 +136,45 @@ class MainActivity : FlutterActivity() {
                 val changeData = detectChangeNative(prevPath, currPath)
                 withContext(Dispatchers.Main) {
                     result.success(changeData)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("OPENCV_ERROR", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun handleComposite(call: MethodCall, result: MethodChannel.Result) {
+        val currentPath = call.argument<String>("currentPath")
+        val cleanBackgroundPath = call.argument<String>("cleanBackgroundPath")
+        val dstPath = call.argument<String>("dstPath")
+        val maskConfidences = call.argument<List<Double>>("maskConfidences")
+        val maskWidth = call.argument<Int>("maskWidth")
+        val maskHeight = call.argument<Int>("maskHeight")
+
+        if (currentPath == null || cleanBackgroundPath == null || dstPath == null ||
+            maskConfidences == null || maskWidth == null || maskHeight == null) {
+            result.error("INVALID_ARGUMENT", "All composite arguments are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val success = compositeNative(
+                    currentPath,
+                    cleanBackgroundPath,
+                    dstPath,
+                    maskConfidences,
+                    maskWidth,
+                    maskHeight
+                )
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        result.success(dstPath)
+                    } else {
+                        result.error("COMPOSITE_FAILED", "Failed to composite frames", null)
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -368,6 +408,64 @@ class MainActivity : FlutterActivity() {
             "eventType" to eventType,
             "diffRatio" to diffRatio
         )
+    }
+
+    private fun compositeNative(
+        currentPath: String,
+        cleanBackgroundPath: String,
+        dstPath: String,
+        maskConfidences: List<Double>,
+        maskWidth: Int,
+        maskHeight: Int
+    ): Boolean {
+        val currBmp = BitmapFactory.decodeFile(currentPath) ?: return false
+        val bgBmp = BitmapFactory.decodeFile(cleanBackgroundPath) ?: return false
+
+        val currMat = Mat()
+        val bgMat = Mat()
+        Utils.bitmapToMat(currBmp, currMat)
+        Utils.bitmapToMat(bgBmp, bgMat)
+        currBmp.recycle()
+        bgBmp.recycle()
+
+        if (currMat.size() != bgMat.size()) {
+            Imgproc.resize(bgMat, bgMat, currMat.size())
+        }
+
+        // Build binary person mask from confidence array
+        val maskByteArray = ByteArray(maskWidth * maskHeight)
+        for (i in maskConfidences.indices) {
+            maskByteArray[i] = if (maskConfidences[i] > 0.65) 255.toByte() else 0.toByte()
+        }
+
+        val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)
+        rawMaskMat.put(0, 0, maskByteArray)
+
+        val fullMaskMat = Mat()
+        Imgproc.resize(rawMaskMat, fullMaskMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_NEAREST)
+
+        // Composite: where person is detected (mask > 0), use clean background; else current frame
+        val resultMat = Mat()
+        currMat.copyTo(resultMat)
+        bgMat.copyTo(resultMat, fullMaskMat)
+
+        val outBitmap = Bitmap.createBitmap(resultMat.cols(), resultMat.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(resultMat, outBitmap)
+
+        val file = File(dstPath)
+        file.parentFile?.mkdirs()
+        FileOutputStream(file).use { out ->
+            outBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+        }
+
+        outBitmap.recycle()
+        currMat.release()
+        bgMat.release()
+        rawMaskMat.release()
+        fullMaskMat.release()
+        resultMat.release()
+
+        return true
     }
 
     private fun distance(p1: Point, p2: Point): Double {

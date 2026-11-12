@@ -103,6 +103,32 @@ class OpenCVService {
     }
   }
 
+  Future<String?> compositeUnoccluded({
+    required String currentPath,
+    required String cleanBackgroundPath,
+    required String dstPath,
+    required List<double> maskConfidences,
+    required int maskWidth,
+    required int maskHeight,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>(
+        'compositeUnoccluded',
+        {
+          'currentPath': currentPath,
+          'cleanBackgroundPath': cleanBackgroundPath,
+          'dstPath': dstPath,
+          'maskConfidences': maskConfidences,
+          'maskWidth': maskWidth,
+          'maskHeight': maskHeight,
+        },
+      );
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static const List<BoardCorner> _defaultCorners = [
     BoardCorner(0.08, 0.08),
     BoardCorner(0.92, 0.08),

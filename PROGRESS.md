@@ -144,10 +144,18 @@
 - `flutter test` ✅ (All tests passed)
 
 ### M6 — Lecturer Removal
-- [ ] ML Kit Selfie Segmentation integration
-- [ ] Multi-frame compositing for occluded regions
-- [ ] SegmentationEngine interface
-- [ ] Privacy: strip all person-containing frames
+**Status: ✅ Complete**
+
+#### Done
+- [x] Swappable `SegmentationEngine` domain interface with confidence thresholding (`hasPerson` flag)
+- [x] On-device `MLKitSegmentationEngine` implementation using `google_mlkit_selfie_segmentation`
+- [x] Native OpenCV multi-frame compositing bridge (`compositeNative` via `Imgproc.resize` + mask overlay)
+- [x] Dart `LecturerRemovalProcessor`: evaluates sequence of keyframes, isolates unoccluded background segments, and composites clear board content over lecturer-blocked regions
+- [x] Privacy compliance: automatically deletes intermediate person-containing frames after compositing
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M7 — Final Pass
 - [ ] Text recognition (ML Kit) on each keyframe
