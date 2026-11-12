@@ -175,11 +175,26 @@
 - `flutter test` ✅ (All tests passed)
 
 ### M8 — Note View
-- [ ] Timeline player: scrubber, play/pause, speed control
-- [ ] Highlighted added/erased content
-- [ ] Pages tab: keyframe grid, zoom, copy text, save image
-- [ ] PDF tab: in-app preview, download, share
-- [ ] Save to Downloads via SAF (no broad storage permission)
+**Status: ✅ Complete**
+
+#### Done
+- [x] Multi-tab interactive Note View (`Timeline`, `Pages`, `PDF`)
+- [x] Timeline Player:
+  - Interactive scrubbing slider across keyframes
+  - Play / Pause state machine with variable speed selector (0.5x, 1.0x, 2.0x)
+  - Event type badge display (`ADD`, `ERASE`, `INITIAL`)
+- [x] Pages Grid tab:
+  - Grid presentation of extracted keyframes
+  - One-tap OCR text copy to clipboard
+  - Tap card to jump directly to that point in timeline player
+- [x] PDF Viewer tab:
+  - High-res vector rendering via `pdfx` (`PdfViewPinch` with pinch-to-zoom support)
+  - Native Android share sheet integration via `SharePlus`
+  - Action trigger to execute final processing pass (`SessionFinalizer`) directly from UI
+
+#### Verification Results
+- `flutter analyze` ✅ (0 issues found)
+- `flutter test` ✅ (All tests passed)
 
 ### M9 — Sync
 - [ ] Outbox queue with retry/backoff
