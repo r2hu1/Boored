@@ -17,6 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
+  bool _isSearching = false;
 
   @override
   void dispose() {
@@ -24,47 +25,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
+  void _closeSearch() {
+    setState(() => _isSearching = false);
+    _searchController.clear();
+    ref.read(notesNotifierProvider.notifier).clearSearch();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final user = ref.watch(authNotifierProvider).user;
     final notesState = ref.watch(notesNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Boored'),
-        centerTitle: false,
-        actions: [
-          Consumer(
-            builder: (ctx, ref, _) {
-              final syncState = ref.watch(syncNotifierProvider);
-              if (syncState.status == SyncStatus.syncing) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                );
-              }
-              return IconButton(
-                icon: Badge(
-                  isLabelVisible: syncState.pendingCount > 0,
-                  label: Text('${syncState.pendingCount}'),
-                  child: const Icon(Icons.sync),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search notes...',
+                  border: InputBorder.none,
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref
+                                .read(notesNotifierProvider.notifier)
+                                .clearSearch();
+                            setState(() {});
+                          },
+                        )
+                      : null,
                 ),
-                tooltip: 'Sync changes',
-                onPressed: () {
-                  ref.read(syncNotifierProvider.notifier).syncNow();
+                onChanged: (query) {
+                  ref.read(notesNotifierProvider.notifier).search(query);
+                  setState(() {});
                 },
-              );
-            },
-          ),
-          if (user != null)
+              )
+            : const Text('Boored'),
+        centerTitle: false,
+        leading: _isSearching
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _closeSearch,
+              )
+            : null,
+        actions: [
+          if (!_isSearching)
+            Consumer(
+              builder: (ctx, ref, _) {
+                final syncState = ref.watch(syncNotifierProvider);
+                if (syncState.status == SyncStatus.syncing) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Center(
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                return IconButton(
+                  icon: Badge(
+                    isLabelVisible: syncState.pendingCount > 0,
+                    label: Text('${syncState.pendingCount}'),
+                    child: const Icon(Icons.sync),
+                  ),
+                  tooltip: 'Sync changes',
+                  onPressed: () {
+                    ref.read(syncNotifierProvider.notifier).syncNow();
+                  },
+                );
+              },
+            ),
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Search',
+              onPressed: () => setState(() => _isSearching = true),
+            ),
+          if (!_isSearching && user != null)
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'settings') {
@@ -125,82 +169,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF2E384D)
-                      : const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Icon(
-                    Icons.search,
-                    size: 20,
-                    color: isDark
-                        ? const Color(0xFF8B9BB4)
-                        : const Color(0xFF64748B),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search notes...',
-                        hintStyle: TextStyle(
-                          fontSize: 14,
-                          color: isDark
-                              ? const Color(0xFF64748B)
-                              : const Color(0xFF94A3B8),
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onChanged: (query) {
-                        ref.read(notesNotifierProvider.notifier).search(query);
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                  if (_searchController.text.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        _searchController.clear();
-                        ref.read(notesNotifierProvider.notifier).clearSearch();
-                        setState(() {});
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Icon(
-                          Icons.cancel,
-                          size: 18,
-                          color: isDark
-                              ? const Color(0xFF8B9BB4)
-                              : const Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(child: _buildBody(context, notesState, theme)),
-        ],
+      body: PopScope(
+        canPop: !_isSearching,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _isSearching) {
+            _closeSearch();
+          }
+        },
+        child: _buildBody(context, notesState, theme),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateDialog(context),
