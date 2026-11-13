@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../auth/presentation/auth_controller.dart';
 import '../../notes/presentation/notes_controller.dart';
 import '../../notes/presentation/widgets/note_card.dart';
@@ -16,7 +17,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
-  bool _isSearching = false;
 
   @override
   void dispose() {
@@ -27,72 +27,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final user = ref.watch(authNotifierProvider).user;
     final notesState = ref.watch(notesNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search notes...',
-                  border: InputBorder.none,
-                ),
-                onChanged: (query) {
-                  ref.read(notesNotifierProvider.notifier).search(query);
-                },
-              )
-            : const Text('Boored'),
+        title: const Text('Boored'),
         centerTitle: false,
-        leading: _isSearching
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  setState(() => _isSearching = false);
-                  _searchController.clear();
-                  ref.read(notesNotifierProvider.notifier).clearSearch();
-                },
-              )
-            : null,
         actions: [
-          if (!_isSearching)
-            Consumer(
-              builder: (ctx, ref, _) {
-                final syncState = ref.watch(syncNotifierProvider);
-                if (syncState.status == SyncStatus.syncing) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+          Consumer(
+            builder: (ctx, ref, _) {
+              final syncState = ref.watch(syncNotifierProvider);
+              if (syncState.status == SyncStatus.syncing) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  );
-                }
-                return IconButton(
-                  icon: Badge(
-                    isLabelVisible: syncState.pendingCount > 0,
-                    label: Text('${syncState.pendingCount}'),
-                    child: const Icon(Icons.sync),
                   ),
-                  tooltip: 'Sync changes',
-                  onPressed: () {
-                    ref.read(syncNotifierProvider.notifier).syncNow();
-                  },
                 );
-              },
-            ),
-          if (!_isSearching)
-            IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: 'Search',
-              onPressed: () => setState(() => _isSearching = true),
-            ),
-          if (!_isSearching && user != null)
+              }
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: syncState.pendingCount > 0,
+                  label: Text('${syncState.pendingCount}'),
+                  child: const Icon(Icons.sync),
+                ),
+                tooltip: 'Sync changes',
+                onPressed: () {
+                  ref.read(syncNotifierProvider.notifier).syncNow();
+                },
+              );
+            },
+          ),
+          if (user != null)
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'settings') {
@@ -107,10 +79,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(user.name,
-                          style: theme.textTheme.titleSmall),
-                      Text(user.email,
-                          style: theme.textTheme.bodySmall),
+                      Text(user.name, style: theme.textTheme.titleSmall),
+                      Text(user.email, style: theme.textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -145,15 +115,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       )
                     : CircleAvatar(
                         radius: 16,
-                        child: Text(user.name.isNotEmpty
-                            ? user.name[0].toUpperCase()
-                            : '?'),
+                        child: Text(
+                          user.name.isNotEmpty
+                              ? user.name[0].toUpperCase()
+                              : '?',
+                        ),
                       ),
               ),
             ),
         ],
       ),
-      body: _buildBody(context, notesState, theme),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF2E384D)
+                      : const Color(0xFFE2E8F0),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.search,
+                    size: 20,
+                    color: isDark
+                        ? const Color(0xFF8B9BB4)
+                        : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search notes...',
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? const Color(0xFF64748B)
+                              : const Color(0xFF94A3B8),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (query) {
+                        ref.read(notesNotifierProvider.notifier).search(query);
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                  if (_searchController.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        ref.read(notesNotifierProvider.notifier).clearSearch();
+                        setState(() {});
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Icon(
+                          Icons.cancel,
+                          size: 18,
+                          color: isDark
+                              ? const Color(0xFF8B9BB4)
+                              : const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: _buildBody(context, notesState, theme)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateDialog(context),
         icon: const Icon(Icons.add),
@@ -163,7 +211,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBody(
-      BuildContext context, NotesState notesState, ThemeData theme) {
+    BuildContext context,
+    NotesState notesState,
+    ThemeData theme,
+  ) {
     if (notesState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -175,12 +226,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48,
-                  color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
-              Text(notesState.errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge),
+              Text(
+                notesState.errorMessage!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge,
+              ),
             ],
           ),
         ),
@@ -198,13 +254,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Icon(
                 isSearching ? Icons.search_off : Icons.note_add_outlined,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
-                isSearching
-                    ? 'No notes match your search'
-                    : 'No notes yet',
+                isSearching ? 'No notes match your search' : 'No notes yet',
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -260,11 +316,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (!mounted || title == null || title.isEmpty) return;
 
-    final note = await ref.read(notesNotifierProvider.notifier).createNote(title);
+    final note = await ref
+        .read(notesNotifierProvider.notifier)
+        .createNote(title);
     if (!mounted || note == null) return;
 
     if (context.mounted) {
-      context.push('/capture/${note.id}?title=${Uri.encodeComponent(note.title)}');
+      context.push(
+        '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
+      );
     }
   }
 }

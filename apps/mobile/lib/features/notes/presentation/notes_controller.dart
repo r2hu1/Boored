@@ -5,12 +5,14 @@ import '../../auth/presentation/auth_controller.dart';
 import '../data/notes_repository.dart';
 
 class NotesState {
+  final List<Note> allNotes;
   final List<Note> notes;
   final bool isLoading;
   final String? searchQuery;
   final String? errorMessage;
 
   const NotesState({
+    this.allNotes = const [],
     this.notes = const [],
     this.isLoading = true,
     this.searchQuery,
@@ -18,15 +20,18 @@ class NotesState {
   });
 
   NotesState copyWith({
+    List<Note>? allNotes,
     List<Note>? notes,
     bool? isLoading,
     String? searchQuery,
+    bool clearSearchQuery = false,
     String? errorMessage,
   }) {
     return NotesState(
+      allNotes: allNotes ?? this.allNotes,
       notes: notes ?? this.notes,
       isLoading: isLoading ?? this.isLoading,
-      searchQuery: searchQuery,
+      searchQuery: clearSearchQuery ? null : (searchQuery ?? this.searchQuery),
       errorMessage: errorMessage,
     );
   }
@@ -44,7 +49,19 @@ class NotesNotifier extends Notifier<NotesState> {
 
     _subscription?.cancel();
     _subscription = repo.watchNotes(userId).listen(
-      (notes) => state = state.copyWith(notes: notes, isLoading: false),
+      (allNotes) {
+        final query = state.searchQuery?.trim().toLowerCase();
+        final filtered = (query == null || query.isEmpty)
+            ? allNotes
+            : allNotes
+                .where((n) => n.title.toLowerCase().contains(query))
+                .toList();
+        state = state.copyWith(
+          allNotes: allNotes,
+          notes: filtered,
+          isLoading: false,
+        );
+      },
       onError: (e) => state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString(),
@@ -95,27 +112,30 @@ class NotesNotifier extends Notifier<NotesState> {
     }
   }
 
-  Future<void> search(String query) async {
-    final userId = ref.read(authNotifierProvider).user?.id;
-    if (userId == null) return;
-
-    if (query.isEmpty) {
-      state = state.copyWith(searchQuery: null);
+  void search(String query) {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      state = state.copyWith(
+        notes: state.allNotes,
+        clearSearchQuery: true,
+      );
       return;
     }
 
-    state = state.copyWith(searchQuery: query, isLoading: true);
-    try {
-      final repo = ref.read(notesRepositoryProvider);
-      final results = await repo.searchNotes(userId, query);
-      state = state.copyWith(notes: results, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
-    }
+    final filtered = state.allNotes
+        .where((n) => n.title.toLowerCase().contains(trimmed))
+        .toList();
+    state = state.copyWith(
+      searchQuery: query,
+      notes: filtered,
+    );
   }
 
   void clearSearch() {
-    state = state.copyWith(searchQuery: null);
+    state = state.copyWith(
+      notes: state.allNotes,
+      clearSearchQuery: true,
+    );
   }
 }
 
