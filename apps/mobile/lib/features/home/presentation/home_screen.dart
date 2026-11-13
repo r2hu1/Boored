@@ -202,10 +202,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Expanded(child: _buildBody(context, notesState, theme)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('New Note'),
+        child: const Icon(Icons.add),
       ),
     );
   }

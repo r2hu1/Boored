@@ -23,7 +23,7 @@ void main() {
 
     expect(find.text('Boored'), findsOneWidget);
     expect(find.text('No notes yet'), findsOneWidget);
-    expect(find.text('New Note'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
 
     await db.close();
   });
