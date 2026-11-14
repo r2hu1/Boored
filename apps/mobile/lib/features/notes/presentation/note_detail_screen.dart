@@ -905,53 +905,34 @@ class _PdfTabState extends State<_PdfTab>
         Positioned(
           bottom: 20,
           right: 20,
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E2430) : Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
-                width: 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.small(
+                heroTag: 'regenerate_pdf_btn',
+                tooltip: 'Regenerate PDF',
+                onPressed: widget.onRegenerate,
+                child: const Icon(Icons.refresh),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  tooltip: 'Regenerate',
-                  onPressed: widget.onRegenerate,
-                ),
-                Container(
-                  width: 1,
-                  height: 20,
-                  color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.share_outlined, size: 20),
-                  tooltip: 'Share PDF',
-                  onPressed: () async {
-                    final appDir = await getApplicationDocumentsDirectory();
-                    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
-                    if (File(pdfPath).existsSync()) {
-                      await SharePlus.instance.share(
-                        ShareParams(
-                          files: [XFile(pdfPath)],
-                          title: 'Whiteboard PDF',
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
+              const SizedBox(height: 12),
+              FloatingActionButton(
+                heroTag: 'share_pdf_btn',
+                tooltip: 'Share PDF',
+                onPressed: () async {
+                  final appDir = await getApplicationDocumentsDirectory();
+                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+                  if (File(pdfPath).existsSync()) {
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        files: [XFile(pdfPath)],
+                        title: 'Whiteboard PDF',
+                      ),
+                    );
+                  }
+                },
+                child: const Icon(Icons.share_outlined),
+              ),
+            ],
           ),
         ),
       ],
