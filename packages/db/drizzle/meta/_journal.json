@@ -8,6 +8,13 @@
       "when": 1794328351695,
       "tag": "0000_brief_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794644059622,
+      "tag": "0001_pink_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }
