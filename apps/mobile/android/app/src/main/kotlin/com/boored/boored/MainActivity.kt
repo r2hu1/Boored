@@ -236,72 +236,113 @@ class MainActivity : FlutterActivity() {
         val originalWidth = bitmap.width.toDouble()
         val originalHeight = bitmap.height.toDouble()
 
-        val mat = Mat()
-        Utils.bitmapToMat(bitmap, mat)
+        // Downscale for fast & robust contour detection while preserving aspect ratio
+        val targetWidth = 1000.0
+        val scale = if (originalWidth > targetWidth) targetWidth / originalWidth else 1.0
+        val scaledWidth = (originalWidth * scale).toInt()
+        val scaledHeight = (originalHeight * scale).toInt()
+
+        val origMat = Mat()
+        Utils.bitmapToMat(bitmap, origMat)
         bitmap.recycle()
 
+        val resizedMat = Mat()
+        if (scale < 1.0) {
+            Imgproc.resize(origMat, resizedMat, Size(scaledWidth.toDouble(), scaledHeight.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
+            origMat.release()
+        } else {
+            origMat.copyTo(resizedMat)
+            origMat.release()
+        }
+
         val gray = Mat()
-        Imgproc.cvtColor(mat, gray, Imgproc.COLOR_BGR2GRAY)
+        Imgproc.cvtColor(resizedMat, gray, Imgproc.COLOR_BGR2GRAY)
         Imgproc.GaussianBlur(gray, gray, Size(5.0, 5.0), 0.0)
 
-        // Enhance contrast using CLAHE to separate whiteboard borders under classroom light
+        // Enhance contrast using CLAHE
         val clahe = Imgproc.createCLAHE(3.0, Size(8.0, 8.0))
         val contrasted = Mat()
         clahe.apply(gray, contrasted)
 
-        // Multiple thresholding stages: Canny + adaptive threshold to detect whiteboard frame edges
-        val edges = Mat()
-        Imgproc.Canny(contrasted, edges, 30.0, 120.0)
-        // Dilate slightly to connect broken board boundary edges
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(3.0, 3.0))
-        Imgproc.dilate(edges, edges, kernel)
+        // Try both edge detection methods: 1) Canny and 2) Adaptive Threshold
+        val edgesCanny = Mat()
+        Imgproc.Canny(contrasted, edgesCanny, 30.0, 120.0)
+        val morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
+        Imgproc.dilate(edgesCanny, edgesCanny, morphKernel)
 
-        val contours = ArrayList<MatOfPoint>()
-        val hierarchy = Mat()
-        Imgproc.findContours(edges, contours, hierarchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE)
-
-        contours.sortByDescending { Imgproc.contourArea(it) }
+        val adaptiveThresh = Mat()
+        Imgproc.adaptiveThreshold(
+            gray,
+            adaptiveThresh,
+            255.0,
+            Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,
+            Imgproc.THRESH_BINARY_INV,
+            11,
+            2.0
+        )
+        Imgproc.morphologyEx(adaptiveThresh, adaptiveThresh, Imgproc.MORPH_CLOSE, morphKernel)
 
         var foundCorners: Array<Point>? = null
+        val totalArea = scaledWidth * scaledHeight.toDouble()
 
-        for (contour in contours.take(20)) {
-            val peri = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
-            for (eps in doubleArrayOf(0.02, 0.03, 0.04, 0.05)) {
-                val approx = MatOfPoint2f()
-                Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approx, eps * peri, true)
+        // Search contours from Canny, then from Adaptive Threshold if Canny doesn't find a clean board
+        for (binaryMap in arrayOf(edgesCanny, adaptiveThresh)) {
+            val contours = ArrayList<MatOfPoint>()
+            val hierarchy = Mat()
+            Imgproc.findContours(binaryMap, contours, hierarchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE)
+            hierarchy.release()
 
-                if (approx.total() == 4L) {
-                    val area = Imgproc.contourArea(approx)
-                    // Must be a significant quadrilateral covering >= 10% of frame
-                    if (area > (originalWidth * originalHeight * 0.10)) {
-                        foundCorners = approx.toArray()
-                        break
+            contours.sortByDescending { Imgproc.contourArea(it) }
+
+            for (contour in contours.take(15)) {
+                val contourArea = Imgproc.contourArea(contour)
+                // Whiteboard in frame must cover at least 8% of the camera viewfinder
+                if (contourArea < totalArea * 0.08) continue
+
+                val contour2f = MatOfPoint2f(*contour.toArray())
+                val peri = Imgproc.arcLength(contour2f, true)
+
+                // Sweep epsilon from tight to loose
+                for (eps in doubleArrayOf(0.015, 0.02, 0.03, 0.04, 0.05, 0.06)) {
+                    val approx = MatOfPoint2f()
+                    Imgproc.approxPolyDP(contour2f, approx, eps * peri, true)
+
+                    val pts = approx.toArray()
+                    if (pts.size == 4) {
+                        // Check if quadrilateral is convex
+                        val isConvex = Imgproc.isContourConvex(MatOfPoint(*pts))
+                        if (isConvex) {
+                            foundCorners = pts
+                            break
+                        }
                     }
                 }
+                if (foundCorners != null) break
             }
             if (foundCorners != null) break
         }
 
-        mat.release()
+        resizedMat.release()
         gray.release()
         contrasted.release()
-        edges.release()
-        kernel.release()
-        hierarchy.release()
+        edgesCanny.release()
+        adaptiveThresh.release()
+        morphKernel.release()
 
         val orderedPoints = if (foundCorners != null && foundCorners.size == 4) {
             orderPoints(foundCorners)
         } else {
             arrayOf(
-                Point(originalWidth * 0.08, originalHeight * 0.08),
-                Point(originalWidth * 0.92, originalHeight * 0.08),
-                Point(originalWidth * 0.92, originalHeight * 0.92),
-                Point(originalWidth * 0.08, originalHeight * 0.92)
+                Point(scaledWidth * 0.08, scaledHeight * 0.08),
+                Point(scaledWidth * 0.92, scaledHeight * 0.08),
+                Point(scaledWidth * 0.92, scaledHeight * 0.92),
+                Point(scaledWidth * 0.08, scaledHeight * 0.92)
             )
         }
 
+        // Normalize back to [0.0, 1.0] relative to frame dimensions
         return orderedPoints.map { pt ->
-            mapOf("x" to (pt.x / originalWidth), "y" to (pt.y / originalHeight))
+            mapOf("x" to (pt.x / scaledWidth), "y" to (pt.y / scaledHeight))
         }
     }
 

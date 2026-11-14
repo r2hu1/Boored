@@ -13,7 +13,7 @@ class BoardCorner {
   Offset toOffset(Size size) => Offset(x * size.width, y * size.height);
 }
 
-class BoardOverlay extends StatelessWidget {
+class BoardOverlay extends StatefulWidget {
   final List<BoardCorner> corners;
   final ValueChanged<List<BoardCorner>> onCornersChanged;
   final bool editable;
@@ -26,6 +26,15 @@ class BoardOverlay extends StatelessWidget {
   });
 
   @override
+  State<BoardOverlay> createState() => _BoardOverlayState();
+}
+
+class _BoardOverlayState extends State<BoardOverlay> {
+  int? _activeDraggingIndex;
+  Offset? _dragStartGlobalOffset;
+  Offset? _dragStartCornerPixelOffset;
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -35,10 +44,10 @@ class BoardOverlay extends StatelessWidget {
           children: [
             CustomPaint(
               size: size,
-              painter: _BoardOutlinePainter(corners: corners),
+              painter: _BoardOutlinePainter(corners: widget.corners),
             ),
-            if (editable)
-              for (int i = 0; i < corners.length; i++)
+            if (widget.editable)
+              for (int i = 0; i < widget.corners.length; i++)
                 _buildCornerHandle(i, size),
           ],
         );
@@ -47,49 +56,83 @@ class BoardOverlay extends StatelessWidget {
   }
 
   Widget _buildCornerHandle(int index, Size size) {
-    const handleRadius = 24.0;
-    const hitAreaSize = 56.0;
-    final pos = corners[index].toOffset(size);
+    const handleVisualRadius = 24.0;
+    const hitAreaSize = 72.0;
+    final pos = widget.corners[index].toOffset(size);
+    final isDragging = _activeDraggingIndex == index;
 
     return Positioned(
       left: pos.dx - hitAreaSize / 2,
       top: pos.dy - hitAreaSize / 2,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (details) {
+          setState(() {
+            _activeDraggingIndex = index;
+            _dragStartGlobalOffset = details.globalPosition;
+            _dragStartCornerPixelOffset = pos;
+          });
+        },
         onPanUpdate: (details) {
-          final newDx = (pos.dx + details.delta.dx).clamp(0.0, size.width);
-          final newDy = (pos.dy + details.delta.dy).clamp(0.0, size.height);
+          if (_dragStartGlobalOffset == null || _dragStartCornerPixelOffset == null) {
+            return;
+          }
+          final delta = details.globalPosition - _dragStartGlobalOffset!;
+          final newDx = (_dragStartCornerPixelOffset!.dx + delta.dx).clamp(0.0, size.width);
+          final newDy = (_dragStartCornerPixelOffset!.dy + delta.dy).clamp(0.0, size.height);
 
-          final updated = List<BoardCorner>.from(corners);
+          final updated = List<BoardCorner>.from(widget.corners);
           updated[index] = BoardCorner(newDx / size.width, newDy / size.height);
-          onCornersChanged(updated);
+          widget.onCornersChanged(updated);
+        },
+        onPanEnd: (_) {
+          setState(() {
+            _activeDraggingIndex = null;
+            _dragStartGlobalOffset = null;
+            _dragStartCornerPixelOffset = null;
+          });
+        },
+        onPanCancel: () {
+          setState(() {
+            _activeDraggingIndex = null;
+            _dragStartGlobalOffset = null;
+            _dragStartCornerPixelOffset = null;
+          });
         },
         child: Container(
           width: hitAreaSize,
           height: hitAreaSize,
           alignment: Alignment.center,
-          child: Container(
-            width: handleRadius * 2,
-            height: handleRadius * 2,
-            decoration: BoxDecoration(
-              color: Colors.amberAccent,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                  spreadRadius: 2,
+          color: Colors.transparent,
+          child: AnimatedScale(
+            scale: isDragging ? 1.25 : 1.0,
+            duration: const Duration(milliseconds: 150),
+            child: Container(
+              width: handleVisualRadius * 2,
+              height: handleVisualRadius * 2,
+              decoration: BoxDecoration(
+                color: isDragging ? Colors.amber : Colors.amberAccent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: isDragging ? 3.0 : 2.5,
                 ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDragging ? 0.7 : 0.45),
+                    blurRadius: isDragging ? 10 : 6,
+                    spreadRadius: isDragging ? 3 : 2,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ),
