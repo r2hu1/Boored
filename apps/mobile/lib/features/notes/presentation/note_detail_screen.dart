@@ -505,28 +505,28 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.15,
-      ),
-      itemCount: keyframes.length,
-      itemBuilder: (context, index) {
-        final kf = keyframes[index];
-        final hasText = kf.extractedText != null && kf.extractedText!.trim().isNotEmpty;
+    // Split items into 2 columns for a clean staggered masonry layout
+    final leftColumn = <int>[];
+    final rightColumn = <int>[];
+    for (int i = 0; i < keyframes.length; i++) {
+      if (i.isEven) {
+        leftColumn.add(i);
+      } else {
+        rightColumn.add(i);
+      }
+    }
 
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161B26) : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
-              width: 1,
-            ),
-          ),
+    Widget buildTile(int index) {
+      final kf = keyframes[index];
+      final hasText = kf.extractedText != null && kf.extractedText!.trim().isNotEmpty;
+      final file = File(kf.imagePath);
+      final exists = file.existsSync();
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
@@ -535,63 +535,104 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                 _tabController.animateTo(0);
               });
             },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Container(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                    child: File(kf.imagePath).existsSync()
-                        ? Image.file(File(kf.imagePath), fit: BoxFit.cover)
-                        : Icon(
-                            Icons.broken_image,
-                            size: 24,
-                            color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
-                          ),
-                  ),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                  width: 1,
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Page ${index + 1}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Natural aspect image
+                  if (exists)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.fitWidth,
+                        alignment: Alignment.topCenter,
                       ),
-                      if (hasText)
-                        GestureDetector(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: kf.extractedText!));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Text copied')),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Icon(
-                              Icons.copy,
-                              size: 14,
-                              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF64748B),
-                            ),
+                    )
+                  else
+                    Container(
+                      height: 120,
+                      color: isDark ? const Color(0xFF161B26) : const Color(0xFFF1F5F9),
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 28,
+                        color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+
+                  // Footer bar with page label and copy text action
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Page ${index + 1}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
-                    ],
+                        if (hasText)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: kf.extractedText!));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Text copied to clipboard'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.copy_rounded,
+                                size: 14,
+                                color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              children: leftColumn.map(buildTile).toList(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              children: rightColumn.map(buildTile).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
