@@ -31,6 +31,10 @@ jobs:
         working-directory: apps/mobile
         run: flutter pub get
 
+      - name: Run build_runner (generate drift database code)
+        working-directory: apps/mobile
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Create fallback .env if not provided in secrets
         working-directory: apps/mobile
         run: |
@@ -76,6 +80,10 @@ jobs:
       - name: Install dependencies
         working-directory: apps/mobile
         run: flutter pub get
+
+      - name: Run build_runner (generate drift database code)
+        working-directory: apps/mobile
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Create fallback .env if not provided in secrets
         working-directory: apps/mobile
