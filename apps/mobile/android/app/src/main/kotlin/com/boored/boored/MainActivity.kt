@@ -255,21 +255,24 @@ class MainActivity : FlutterActivity() {
             origMat.release()
         }
 
+        // 1. Grayscale + Blur
         val gray = Mat()
         Imgproc.cvtColor(resizedMat, gray, Imgproc.COLOR_BGR2GRAY)
         Imgproc.GaussianBlur(gray, gray, Size(5.0, 5.0), 0.0)
 
-        // Enhance contrast using CLAHE
+        // 2. CLAHE contrast enhancement for low-contrast edges
         val clahe = Imgproc.createCLAHE(3.0, Size(8.0, 8.0))
         val contrasted = Mat()
         clahe.apply(gray, contrasted)
 
-        // Try both edge detection methods: 1) Canny and 2) Adaptive Threshold
+        val morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
+
+        // Strategy A: Canny edge map
         val edgesCanny = Mat()
         Imgproc.Canny(contrasted, edgesCanny, 30.0, 120.0)
-        val morphKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
         Imgproc.dilate(edgesCanny, edgesCanny, morphKernel)
 
+        // Strategy B: Adaptive Thresholding (robust against shadows & uneven room lighting)
         val adaptiveThresh = Mat()
         Imgproc.adaptiveThreshold(
             gray,
@@ -282,56 +285,95 @@ class MainActivity : FlutterActivity() {
         )
         Imgproc.morphologyEx(adaptiveThresh, adaptiveThresh, Imgproc.MORPH_CLOSE, morphKernel)
 
-        var foundCorners: Array<Point>? = null
-        val totalArea = scaledWidth * scaledHeight.toDouble()
+        // Strategy C: HSV Whiteboard Mask (High Value/Brightness + Low Saturation)
+        val hsvMat = Mat()
+        Imgproc.cvtColor(resizedMat, hsvMat, Imgproc.COLOR_BGR2HSV)
+        val hsvChannels = ArrayList<Mat>()
+        Core.split(hsvMat, hsvChannels)
+        val satChannel = hsvChannels[1]
+        val valChannel = hsvChannels[2]
 
-        // Search contours from Canny, then from Adaptive Threshold if Canny doesn't find a clean board
-        for (binaryMap in arrayOf(edgesCanny, adaptiveThresh)) {
+        val satMask = Mat()
+        val valMask = Mat()
+        // Whiteboard has low saturation (< 65) and high brightness (> 130)
+        Imgproc.threshold(satChannel, satMask, 65.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        Imgproc.threshold(valChannel, valMask, 130.0, 255.0, Imgproc.THRESH_BINARY)
+        val hsvWhiteboardMask = Mat()
+        Core.bitwise_and(satMask, valMask, hsvWhiteboardMask)
+        Imgproc.morphologyEx(hsvWhiteboardMask, hsvWhiteboardMask, Imgproc.MORPH_CLOSE, morphKernel)
+
+        val totalArea = scaledWidth * scaledHeight.toDouble()
+        var foundCorners: Array<Point>? = null
+
+        // Try candidate maps in order of precision: Canny -> Adaptive -> HSV White Surface
+        for (binaryMap in arrayOf(edgesCanny, adaptiveThresh, hsvWhiteboardMask)) {
             val contours = ArrayList<MatOfPoint>()
             val hierarchy = Mat()
             Imgproc.findContours(binaryMap, contours, hierarchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE)
             hierarchy.release()
 
+            // Sort largest area first
             contours.sortByDescending { Imgproc.contourArea(it) }
 
             for (contour in contours.take(15)) {
                 val contourArea = Imgproc.contourArea(contour)
-                // Whiteboard in frame must cover at least 8% of the camera viewfinder
                 if (contourArea < totalArea * 0.08) continue
 
                 val contour2f = MatOfPoint2f(*contour.toArray())
                 val peri = Imgproc.arcLength(contour2f, true)
 
-                // Sweep epsilon from tight to loose
-                for (eps in doubleArrayOf(0.015, 0.02, 0.03, 0.04, 0.05, 0.06)) {
+                // 1. Try Douglas-Peucker polygon approximation with varying epsilons
+                for (eps in doubleArrayOf(0.015, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08)) {
                     val approx = MatOfPoint2f()
                     Imgproc.approxPolyDP(contour2f, approx, eps * peri, true)
-
                     val pts = approx.toArray()
-                    if (pts.size == 4) {
-                        // Check if quadrilateral is convex
-                        val isConvex = Imgproc.isContourConvex(MatOfPoint(*pts))
-                        if (isConvex) {
-                            foundCorners = pts
+
+                    if (pts.size == 4 && Imgproc.isContourConvex(MatOfPoint(*pts))) {
+                        foundCorners = pts
+                        break
+                    }
+                }
+                if (foundCorners != null) break
+
+                // 2. If exactly 4 points weren't found due to minor edge curve, extract extreme corners from Convex Hull
+                val hull = MatOfInt()
+                Imgproc.convexHull(contour, hull)
+                val hullIndices = hull.toArray()
+                val contourPts = contour.toArray()
+                val hullPts = hullIndices.map { contourPts[it] }
+
+                if (hullPts.size >= 4) {
+                    val extremeQuad = extractFourCornersFromPoints(hullPts)
+                    if (extremeQuad != null && Imgproc.isContourConvex(MatOfPoint(*extremeQuad))) {
+                        val quadArea = Imgproc.contourArea(MatOfPoint(*extremeQuad))
+                        if (quadArea >= totalArea * 0.08) {
+                            foundCorners = extremeQuad
                             break
                         }
                     }
                 }
-                if (foundCorners != null) break
             }
             if (foundCorners != null) break
         }
 
+        // Cleanup native OpenCV matrices
         resizedMat.release()
         gray.release()
         contrasted.release()
         edgesCanny.release()
         adaptiveThresh.release()
+        hsvMat.release()
+        satChannel.release()
+        valChannel.release()
+        satMask.release()
+        valMask.release()
+        hsvWhiteboardMask.release()
         morphKernel.release()
 
         val orderedPoints = if (foundCorners != null && foundCorners.size == 4) {
             orderPoints(foundCorners)
         } else {
+            // Sensible centered default
             arrayOf(
                 Point(scaledWidth * 0.08, scaledHeight * 0.08),
                 Point(scaledWidth * 0.92, scaledHeight * 0.08),
@@ -340,10 +382,50 @@ class MainActivity : FlutterActivity() {
             )
         }
 
-        // Normalize back to [0.0, 1.0] relative to frame dimensions
         return orderedPoints.map { pt ->
             mapOf("x" to (pt.x / scaledWidth), "y" to (pt.y / scaledHeight))
         }
+    }
+
+    private fun extractFourCornersFromPoints(pts: List<Point>): Array<Point>? {
+        if (pts.size < 4) return null
+        var tl = pts[0]
+        var tr = pts[0]
+        var br = pts[0]
+        var bl = pts[0]
+
+        var minSum = Double.MAX_VALUE
+        var maxSum = -Double.MAX_VALUE
+        var minDiff = Double.MAX_VALUE
+        var maxDiff = -Double.MAX_VALUE
+
+        for (p in pts) {
+            val sum = p.x + p.y
+            val diff = p.x - p.y
+
+            if (sum < minSum) {
+                minSum = sum
+                tl = p
+            }
+            if (sum > maxSum) {
+                maxSum = sum
+                br = p
+            }
+            if (diff > maxDiff) { // top-right has highest (x - y)
+                maxDiff = diff
+                tr = p
+            }
+            if (diff < minDiff) { // bottom-left has lowest (x - y)
+                minDiff = diff
+                bl = p
+            }
+        }
+
+        // Ensure distinct 4 points
+        val distinct = setOf(tl, tr, br, bl)
+        if (distinct.size != 4) return null
+
+        return arrayOf(tl, tr, br, bl)
     }
 
     private fun warpPerspectiveNative(
