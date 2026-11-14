@@ -435,7 +435,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
 
               const SizedBox(height: 4),
 
-              // M3 Transport controls & playback speed
+              // M3 Transport controls
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -475,31 +475,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     onPressed: _currentKeyframeIndex < totalFrames - 1
                         ? () => setState(() => _currentKeyframeIndex++)
                         : null,
-                  ),
-
-                  const SizedBox(width: 20),
-
-                  // M3 Speed ActionChip
-                  ActionChip(
-                    padding: EdgeInsets.zero,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    label: Text(
-                      '${_playbackSpeed}x',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        if (_playbackSpeed == 1.0) {
-                          _playbackSpeed = 1.5;
-                        } else if (_playbackSpeed == 1.5) {
-                          _playbackSpeed = 2.0;
-                        } else if (_playbackSpeed == 2.0) {
-                          _playbackSpeed = 0.5;
-                        } else {
-                          _playbackSpeed = 1.0;
-                        }
-                      });
-                    },
                   ),
                 ],
               ),
