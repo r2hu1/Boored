@@ -96,44 +96,13 @@ class SessionFinalizer {
         pdf.addPage(
           pw.Page(
             pageFormat: PdfPageFormat.a4.landscape,
-            margin: const pw.EdgeInsets.all(24),
+            margin: pw.EdgeInsets.zero,
             build: (pw.Context ctx) {
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        '$title - Keyframe ${i + 1}',
-                        style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        'Event: ${event['eventType']}',
-                        style: const pw.TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 12),
-                  pw.Expanded(
-                    child: pw.Center(
-                      child: pw.Image(image, fit: pw.BoxFit.contain),
-                    ),
-                  ),
-                  if (ocrText.isNotEmpty) ...[
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      ocrText.length > 300
-                          ? '${ocrText.substring(0, 300)}...'
-                          : ocrText,
-                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
-                      maxLines: 2,
-                    ),
-                  ],
-                ],
+              return pw.FullPage(
+                ignoreMargins: true,
+                child: pw.Center(
+                  child: pw.Image(image, fit: pw.BoxFit.contain),
+                ),
               );
             },
           ),
