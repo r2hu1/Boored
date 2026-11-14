@@ -44,53 +44,23 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   bool _isFinalizing = false;
+  int _pdfReloadTrigger = 0;
 
   // Timeline player state
   int _currentKeyframeIndex = 0;
   bool _isPlaying = false;
   double _playbackSpeed = 1.0;
 
-  // PDF state
-  PdfControllerPinch? _pdfController;
-  bool _isLoadingPdf = false;
-
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadPdf();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _pdfController?.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadPdf() async {
-    setState(() => _isLoadingPdf = true);
-    try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
-      final file = File(pdfPath);
-      if (file.existsSync()) {
-        final ctrl = PdfControllerPinch(
-          document: PdfDocument.openFile(pdfPath),
-        );
-        if (mounted) {
-          setState(() {
-            _pdfController?.dispose();
-            _pdfController = ctrl;
-            _isLoadingPdf = false;
-          });
-        }
-      } else {
-        if (mounted) setState(() => _isLoadingPdf = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingPdf = false);
-    }
   }
 
   Future<void> _runFinalPass() async {
@@ -112,7 +82,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Processing & PDF generation complete!')),
         );
-        _loadPdf();
+        setState(() => _pdfReloadTrigger++);
       }
     } catch (e) {
       if (mounted) {
@@ -273,7 +243,11 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   children: [
                     _buildTimelineTab(keyframes),
                     _buildPagesGridTab(keyframes),
-                    _buildPdfTab(),
+                    _PdfTab(
+                      key: ValueKey('${widget.noteId}_$_pdfReloadTrigger'),
+                      noteId: widget.noteId,
+                      onRegenerate: _runFinalPass,
+                    ),
                   ],
                 );
               },
@@ -490,99 +464,6 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     );
   }
 
-  Widget _buildPdfTab() {
-    if (_isLoadingPdf) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_pdfController == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.picture_as_pdf, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('PDF has not been generated yet.'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Generate Document PDF'),
-              onPressed: _runFinalPass,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Stack(
-      children: [
-        Container(
-          color: Colors.grey.shade100,
-          child: PdfViewPinch(
-            controller: _pdfController!,
-            builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-              options: const DefaultBuilderOptions(),
-              documentLoaderBuilder: (_) => const Center(
-                child: CircularProgressIndicator(),
-              ),
-              pageLoaderBuilder: (_) => const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              errorBuilder: (_, error) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 12),
-                    Text('Failed to render PDF: $error'),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _openPdfExternally,
-                      child: const Text('Open in External Viewer'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.extended(
-                heroTag: 'regenerate_pdf',
-                icon: const Icon(Icons.refresh),
-                label: const Text('Regenerate'),
-                onPressed: _runFinalPass,
-              ),
-              const SizedBox(width: 12),
-              FloatingActionButton.extended(
-                heroTag: 'share_pdf',
-                icon: const Icon(Icons.share),
-                label: const Text('Share PDF'),
-                onPressed: () async {
-                  final appDir = await getApplicationDocumentsDirectory();
-                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
-                  if (File(pdfPath).existsSync()) {
-                    await SharePlus.instance.share(
-                      ShareParams(
-                        files: [XFile(pdfPath)],
-                        title: 'Whiteboard PDF',
-                      ),
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Future<void> _openPdfExternally() async {
     final appDir = await getApplicationDocumentsDirectory();
     final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
@@ -698,5 +579,176 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     if (mounted) {
       context.pop();
     }
+  }
+}
+
+class _PdfTab extends StatefulWidget {
+  final String noteId;
+  final VoidCallback onRegenerate;
+
+  const _PdfTab({
+    super.key,
+    required this.noteId,
+    required this.onRegenerate,
+  });
+
+  @override
+  State<_PdfTab> createState() => _PdfTabState();
+}
+
+class _PdfTabState extends State<_PdfTab>
+    with AutomaticKeepAliveClientMixin {
+  PdfControllerPinch? _pdfController;
+  bool _isLoadingPdf = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPdf();
+  }
+
+  @override
+  void dispose() {
+    _pdfController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPdf() async {
+    setState(() => _isLoadingPdf = true);
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+      final file = File(pdfPath);
+      if (file.existsSync()) {
+        final ctrl = PdfControllerPinch(
+          document: PdfDocument.openFile(pdfPath),
+        );
+        if (mounted) {
+          setState(() {
+            _pdfController?.dispose();
+            _pdfController = ctrl;
+            _isLoadingPdf = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingPdf = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingPdf = false);
+    }
+  }
+
+  Future<void> _openPdfExternally() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+    final file = File(pdfPath);
+    if (!file.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please generate PDF first')),
+        );
+      }
+      return;
+    }
+    await OpenCVService().openPdf(pdfPath);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    if (_isLoadingPdf) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_pdfController == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.picture_as_pdf, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('PDF has not been generated yet.'),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Generate Document PDF'),
+              onPressed: widget.onRegenerate,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Container(
+          color: Colors.grey.shade100,
+          child: PdfViewPinch(
+            controller: _pdfController!,
+            builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
+              options: const DefaultBuilderOptions(),
+              documentLoaderBuilder: (_) => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              pageLoaderBuilder: (_) => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              errorBuilder: (_, error) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 12),
+                    Text('Failed to render PDF: $error'),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _openPdfExternally,
+                      child: const Text('Open in External Viewer'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'regenerate_pdf',
+                icon: const Icon(Icons.refresh),
+                label: const Text('Regenerate'),
+                onPressed: widget.onRegenerate,
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton.extended(
+                heroTag: 'share_pdf',
+                icon: const Icon(Icons.share),
+                label: const Text('Share PDF'),
+                onPressed: () async {
+                  final appDir = await getApplicationDocumentsDirectory();
+                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+                  if (File(pdfPath).existsSync()) {
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        files: [XFile(pdfPath)],
+                        title: 'Whiteboard PDF',
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
