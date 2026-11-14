@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
