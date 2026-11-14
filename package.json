@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @boored/api dev",
-    "build": "pnpm --filter @boored/api build",
+    "build": "pnpm --filter @boored/contracts build && pnpm --filter @boored/db build && pnpm --filter @boored/api build",
     "db:generate": "pnpm --filter @boored/db generate",
     "db:migrate": "pnpm --filter @boored/db migrate",
     "db:studio": "pnpm --filter @boored/db studio",
