@@ -656,33 +656,10 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 
   Future<void> _showRenameDialog(Note note) async {
-    final controller = TextEditingController(text: note.title);
     final newTitle = await showDialog<String>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Rename Note'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(labelText: 'Title'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) Navigator.of(dialogCtx).pop(text);
-            },
-            child: const Text('Rename'),
-          ),
-        ],
-      ),
+      builder: (dialogCtx) => _RenameNoteDialog(initialTitle: note.title),
     );
-    controller.dispose();
 
     if (!mounted || newTitle == null || newTitle == note.title) return;
     await ref.read(notesNotifierProvider.notifier).updateNoteTitle(widget.noteId, newTitle);
@@ -716,6 +693,61 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     if (mounted) {
       context.pop();
     }
+  }
+}
+
+class _RenameNoteDialog extends StatefulWidget {
+  final String initialTitle;
+
+  const _RenameNoteDialog({required this.initialTitle});
+
+  @override
+  State<_RenameNoteDialog> createState() => _RenameNoteDialogState();
+}
+
+class _RenameNoteDialogState extends State<_RenameNoteDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialTitle);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename Note'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(labelText: 'Title'),
+        onSubmitted: (val) {
+          final text = val.trim();
+          if (text.isNotEmpty) Navigator.of(context).pop(text);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final text = _controller.text.trim();
+            if (text.isNotEmpty) Navigator.of(context).pop(text);
+          },
+          child: const Text('Rename'),
+        ),
+      ],
+    );
   }
 }
 
