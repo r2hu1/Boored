@@ -1,0 +1,103 @@
+name: Mobile Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-android:
+    name: Build Android (APK & AAB)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Create fallback .env if not provided in secrets
+        working-directory: apps/mobile
+        run: |
+          if [ ! -f .env ]; then
+            echo "API_BASE_URL=${{ secrets.API_BASE_URL || 'https://boored-api.vercel.app/v1' }}" >> .env
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || '474507943902-cgkkvl0u89mdg4rvoob6r5vaobrsgqlv.apps.googleusercontent.com' }}" >> .env
+          fi
+
+      - name: Build Android APK (Fat / Universal)
+        working-directory: apps/mobile
+        run: flutter build apk --release
+
+      - name: Build Android App Bundle (AAB for Play Store)
+        working-directory: apps/mobile
+        run: flutter build appbundle --release
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: boored-release-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Release AAB (Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: boored-release-aab
+          path: apps/mobile/build/app/outputs/bundle/release/app-release.aab
+
+  build-ios:
+    name: Build iOS (IPA / Runner.app)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Create fallback .env if not provided in secrets
+        working-directory: apps/mobile
+        run: |
+          if [ ! -f .env ]; then
+            echo "API_BASE_URL=${{ secrets.API_BASE_URL || 'https://boored-api.vercel.app/v1' }}" >> .env
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || '474507943902-cgkkvl0u89mdg4rvoob6r5vaobrsgqlv.apps.googleusercontent.com' }}" >> .env
+          fi
+
+      - name: Build iOS No-Codesign (for Ad-Hoc / Sideloading / Simulator)
+        working-directory: apps/mobile
+        run: flutter build ios --release --no-codesign
+
+      - name: Zip iOS Payload (Payload.ipa structure)
+        working-directory: apps/mobile/build/ios/iphoneos
+        run: |
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r Boored-iOS.ipa Payload
+
+      - name: Upload iOS App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: boored-ios-app
+          path: apps/mobile/build/ios/iphoneos/Boored-iOS.ipa
