@@ -394,14 +394,14 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           ),
         ),
 
-        // Lean unified control deck
+        // Material 3 Control Deck
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF111622) : Colors.white,
+            color: theme.colorScheme.surface,
             border: Border(
               top: BorderSide(
-                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: isDark ? 0.3 : 0.6),
                 width: 1,
               ),
             ),
@@ -409,17 +409,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Scrubbing bar with timestamp/index indicator
+              // M3 Slider
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackHeight: 3.5,
+                  trackHeight: 4,
                   activeTrackColor: theme.colorScheme.primary,
-                  inactiveTrackColor: isDark
-                      ? const Color(0xFF263045)
-                      : const Color(0xFFE2E8F0),
+                  inactiveTrackColor: theme.colorScheme.surfaceContainerHighest,
                   thumbColor: theme.colorScheme.primary,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                  overlayColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
                 ),
                 child: Slider(
                   value: _currentKeyframeIndex.toDouble(),
@@ -434,98 +433,75 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                 ),
               ),
 
-              // Transport controls & playback speed
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Step back
-                    IconButton(
-                      iconSize: 22,
-                      icon: const Icon(Icons.skip_previous_rounded),
-                      tooltip: 'Previous frame',
-                      onPressed: _currentKeyframeIndex > 0
-                          ? () => setState(() => _currentKeyframeIndex--)
-                          : null,
-                    ),
+              const SizedBox(height: 4),
 
-                    // Play / Pause central toggle
-                    GestureDetector(
-                      onTap: totalFrames > 1
-                          ? () {
-                              setState(() => _isPlaying = !_isPlaying);
-                              if (_isPlaying) _startPlaybackLoop(uniqueKeyframes);
-                            }
-                          : null,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          size: 26,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
+              // M3 Transport controls & playback speed
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Step back
+                  IconButton.filledTonal(
+                    iconSize: 20,
+                    icon: const Icon(Icons.skip_previous_rounded),
+                    tooltip: 'Previous frame',
+                    onPressed: _currentKeyframeIndex > 0
+                        ? () => setState(() => _currentKeyframeIndex--)
+                        : null,
+                  ),
 
-                    // Step forward
-                    IconButton(
-                      iconSize: 22,
-                      icon: const Icon(Icons.skip_next_rounded),
-                      tooltip: 'Next frame',
-                      onPressed: _currentKeyframeIndex < totalFrames - 1
-                          ? () => setState(() => _currentKeyframeIndex++)
-                          : null,
-                    ),
+                  const SizedBox(width: 16),
 
-                    // Speed selector pill
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        setState(() {
-                          if (_playbackSpeed == 1.0) {
-                            _playbackSpeed = 1.5;
-                          } else if (_playbackSpeed == 1.5) {
-                            _playbackSpeed = 2.0;
-                          } else if (_playbackSpeed == 2.0) {
-                            _playbackSpeed = 0.5;
-                          } else {
-                            _playbackSpeed = 1.0;
+                  // M3 Filled Play/Pause Button
+                  IconButton.filled(
+                    iconSize: 32,
+                    padding: const EdgeInsets.all(12),
+                    icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                    tooltip: _isPlaying ? 'Pause' : 'Play',
+                    onPressed: totalFrames > 1
+                        ? () {
+                            setState(() => _isPlaying = !_isPlaying);
+                            if (_isPlaying) _startPlaybackLoop(uniqueKeyframes);
                           }
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
-                            width: 1,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${_playbackSpeed}x',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            color: isDark ? Colors.white70 : const Color(0xFF475569),
-                          ),
-                        ),
-                      ),
+                        : null,
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // Step forward
+                  IconButton.filledTonal(
+                    iconSize: 20,
+                    icon: const Icon(Icons.skip_next_rounded),
+                    tooltip: 'Next frame',
+                    onPressed: _currentKeyframeIndex < totalFrames - 1
+                        ? () => setState(() => _currentKeyframeIndex++)
+                        : null,
+                  ),
+
+                  const SizedBox(width: 20),
+
+                  // M3 Speed ActionChip
+                  ActionChip(
+                    padding: EdgeInsets.zero,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    label: Text(
+                      '${_playbackSpeed}x',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
-                  ],
-                ),
+                    onPressed: () {
+                      setState(() {
+                        if (_playbackSpeed == 1.0) {
+                          _playbackSpeed = 1.5;
+                        } else if (_playbackSpeed == 1.5) {
+                          _playbackSpeed = 2.0;
+                        } else if (_playbackSpeed == 2.0) {
+                          _playbackSpeed = 0.5;
+                        } else {
+                          _playbackSpeed = 1.0;
+                        }
+                      });
+                    },
+                  ),
+                ],
               ),
             ],
           ),
