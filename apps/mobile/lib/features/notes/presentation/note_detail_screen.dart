@@ -689,10 +689,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
 
     if (!mounted || confirmed != true) return;
 
-    await ref.read(notesNotifierProvider.notifier).deleteNote(widget.noteId);
-    if (mounted) {
-      context.pop();
-    }
+    // Pop the screen first before triggering the database soft-delete
+    context.pop();
+    ref.read(notesNotifierProvider.notifier).deleteNote(widget.noteId);
   }
 }
 
