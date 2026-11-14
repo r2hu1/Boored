@@ -23,13 +23,13 @@ class SessionFinalizer {
   });
 
   /// Runs the comprehensive M7 finalization pass on a recorded note session:
-  /// 1. Lecturer removal & de-occlusion on all keyframes.
+  /// 1. Lecturer removal & de-occlusion on all keyframes (if removeLecturer is true).
   /// 2. Deduplication of near-identical consecutive frames.
   /// 3. OCR text extraction on each retained keyframe.
   /// 4. Timeline JSON generation.
   /// 5. Document PDF generation.
   /// 6. Mark note status as 'ready'.
-  Future<String> finalizeNote(String noteId) async {
+  Future<String> finalizeNote(String noteId, {bool removeLecturer = true}) async {
     await notesDao.updateNote(noteId, status: 'processing');
 
     final rawKeyframes = await keyframesDao.getKeyframesForNote(noteId);
@@ -38,10 +38,11 @@ class SessionFinalizer {
       return '';
     }
 
-    // Step 1: Lecturer Removal on the sequence
+    // Step 1: Lecturer Removal on the sequence (optional & optimized)
     final keyframeImagePaths = rawKeyframes.map((k) => k.imagePath).toList();
-    final deoccludedPaths =
-        await lecturerRemovalProcessor.processKeyframeSequence(keyframeImagePaths);
+    final deoccludedPaths = removeLecturer
+        ? await lecturerRemovalProcessor.processKeyframeSequence(keyframeImagePaths)
+        : keyframeImagePaths;
 
     // Step 2 & 3: OCR text extraction
     final timelineEvents = <Map<String, dynamic>>[];
@@ -51,7 +52,7 @@ class SessionFinalizer {
       final finalPath = deoccludedPaths[i];
 
       final text = await recognitionEngine.extractText(finalPath);
-      await keyframesDao.updateKeyframeText(kf.id, text);
+      await keyframesDao.updateKeyframeImageAndText(kf.id, finalPath, text);
 
       timelineEvents.add({
         'index': kf.index,
@@ -79,15 +80,11 @@ class SessionFinalizer {
     );
 
     // Step 5: PDF document generation
-    final note = await notesDao.getNoteById(noteId);
-    final title = note?.title ?? 'Whiteboard Notes';
-
     final pdf = pw.Document();
 
     for (int i = 0; i < timelineEvents.length; i++) {
       final event = timelineEvents[i];
       final imgPath = event['imagePath'] as String;
-      final ocrText = (event['extractedText'] as String).trim();
 
       if (File(imgPath).existsSync()) {
         final imageBytes = await File(imgPath).readAsBytes();

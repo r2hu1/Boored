@@ -51,6 +51,15 @@ class KeyframesDao extends DatabaseAccessor<AppDatabase> with _$KeyframesDaoMixi
     return (select(keyframes)..where((k) => k.id.equals(id))).getSingle();
   }
 
+  Future<void> updateKeyframeImageAndText(String id, String imagePath, String text) {
+    return (update(keyframes)..where((k) => k.id.equals(id))).write(
+      KeyframesCompanion(
+        imagePath: Value(imagePath),
+        extractedText: Value(text),
+      ),
+    );
+  }
+
   Future<void> updateKeyframeText(String id, String text) {
     return (update(keyframes)..where((k) => k.id.equals(id))).write(
       KeyframesCompanion(

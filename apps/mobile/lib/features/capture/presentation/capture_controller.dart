@@ -19,6 +19,7 @@ class CaptureState {
   final String? errorMessage;
   final int intervalSeconds;
   final String lastEventType;
+  final bool removeLecturer;
 
   const CaptureState({
     this.phase = CapturePhase.idle,
@@ -29,6 +30,7 @@ class CaptureState {
     this.errorMessage,
     this.intervalSeconds = 5,
     this.lastEventType = 'NONE',
+    this.removeLecturer = true,
   });
 
   CaptureState copyWith({
@@ -40,6 +42,7 @@ class CaptureState {
     String? errorMessage,
     int? intervalSeconds,
     String? lastEventType,
+    bool? removeLecturer,
   }) {
     return CaptureState(
       phase: phase ?? this.phase,
@@ -50,6 +53,7 @@ class CaptureState {
       errorMessage: errorMessage,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       lastEventType: lastEventType ?? this.lastEventType,
+      removeLecturer: removeLecturer ?? this.removeLecturer,
     );
   }
 }
@@ -212,6 +216,10 @@ class CaptureNotifier extends Notifier<CaptureState> {
 
   void setInterval(int seconds) {
     state = state.copyWith(intervalSeconds: seconds);
+  }
+
+  void toggleRemoveLecturer() {
+    state = state.copyWith(removeLecturer: !state.removeLecturer);
   }
 
   Future<void> cleanup() async {

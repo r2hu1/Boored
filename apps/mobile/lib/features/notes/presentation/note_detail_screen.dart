@@ -63,7 +63,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     super.dispose();
   }
 
-  Future<void> _runFinalPass() async {
+  Future<void> _runFinalPass({bool removeLecturer = true}) async {
     setState(() => _isFinalizing = true);
     try {
       final db = ref.read(databaseProvider);
@@ -77,10 +77,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         ),
       );
 
-      await finalizer.finalizeNote(widget.noteId);
+      await finalizer.finalizeNote(widget.noteId, removeLecturer: removeLecturer);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Processing & PDF generation complete!')),
+          SnackBar(
+            content: Text(
+              removeLecturer
+                  ? 'Professor removal & finalization complete!'
+                  : 'Processing complete!',
+            ),
+          ),
         );
         setState(() => _pdfReloadTrigger++);
       }
@@ -208,12 +214,23 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               ),
               PopupMenuButton<String>(
                 onSelected: (val) {
+                  if (val == 'remove_professor') _runFinalPass(removeLecturer: true);
                   if (val == 'rename') _showRenameDialog(note);
                   if (val == 'open_pdf') _openPdfExternally();
                   if (val == 'download_pdf') _downloadPdfToDownloads(note);
                   if (val == 'delete') _confirmDelete(note);
                 },
                 itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'remove_professor',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_off_outlined, size: 18),
+                        SizedBox(width: 10),
+                        Text('Remove professor'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'rename',
                     child: Row(

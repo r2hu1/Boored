@@ -500,36 +500,45 @@ class MainActivity : FlutterActivity() {
         Utils.bitmapToMat(bitmap, bgr)
         bitmap.recycle()
 
-        // 1. Convert to LAB color space for lighting normalization
+        // 1. Bilateral filtering for edge-preserving denoising (removes sensor noise & JPEG artifacts without blurring stroke edges)
+        val denoised = Mat()
+        Imgproc.bilateralFilter(bgr, denoised, 5, 50.0, 50.0)
+        bgr.release()
+
+        // 2. Convert to LAB color space for lighting normalization
         val lab = Mat()
-        Imgproc.cvtColor(bgr, lab, Imgproc.COLOR_BGR2Lab)
+        Imgproc.cvtColor(denoised, lab, Imgproc.COLOR_BGR2Lab)
         val labPlanes = ArrayList<Mat>(3)
         Core.split(lab, labPlanes)
 
-        // CLAHE (Contrast Limited Adaptive Histogram Equalization) on L-channel
-        val clahe = Imgproc.createCLAHE(2.0, Size(8.0, 8.0))
+        // Balanced CLAHE on L-channel: 2.2 clip limit, 8x8 grid for consistent contrast
+        val clahe = Imgproc.createCLAHE(2.2, Size(8.0, 8.0))
         clahe.apply(labPlanes[0], labPlanes[0])
         Core.merge(labPlanes, lab)
-        Imgproc.cvtColor(lab, bgr, Imgproc.COLOR_Lab2BGR)
+        val enhancedBgr = Mat()
+        Imgproc.cvtColor(lab, enhancedBgr, Imgproc.COLOR_Lab2BGR)
 
-        // 2. Stroke sharpening using unsharp mask
+        // 3. Crisp stroke sharpening using unsharp masking
         val blurred = Mat()
-        Imgproc.GaussianBlur(bgr, blurred, Size(0.0, 0.0), 3.0)
-        Core.addWeighted(bgr, 1.5, blurred, -0.5, 0.0, bgr)
+        Imgproc.GaussianBlur(enhancedBgr, blurred, Size(0.0, 0.0), 2.5)
+        val sharpened = Mat()
+        Core.addWeighted(enhancedBgr, 1.45, blurred, -0.45, 0.0, sharpened)
 
-        val outBitmap = Bitmap.createBitmap(bgr.cols(), bgr.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(bgr, outBitmap)
+        val outBitmap = Bitmap.createBitmap(sharpened.cols(), sharpened.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(sharpened, outBitmap)
 
         val file = File(dstPath)
         file.parentFile?.mkdirs()
         FileOutputStream(file).use { out ->
-            outBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            outBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
         }
 
         outBitmap.recycle()
-        bgr.release()
+        denoised.release()
         lab.release()
+        enhancedBgr.release()
         blurred.release()
+        sharpened.release()
         for (p in labPlanes) p.release()
 
         return true
@@ -615,22 +624,59 @@ class MainActivity : FlutterActivity() {
             Imgproc.resize(bgMat, bgMat, currMat.size())
         }
 
-        // Build binary person mask from confidence array
+        // Build binary person mask from confidence array with 0.40 threshold
         val maskByteArray = ByteArray(maskWidth * maskHeight)
         for (i in maskConfidences.indices) {
-            maskByteArray[i] = if (maskConfidences[i] > 0.65) 255.toByte() else 0.toByte()
+            maskByteArray[i] = if (maskConfidences[i] > 0.40) 255.toByte() else 0.toByte()
         }
 
         val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)
         rawMaskMat.put(0, 0, maskByteArray)
 
         val fullMaskMat = Mat()
-        Imgproc.resize(rawMaskMat, fullMaskMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_NEAREST)
+        Imgproc.resize(rawMaskMat, fullMaskMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
 
-        // Composite: where person is detected (mask > 0), use clean background; else current frame
+        // Morphological dilation to expand boundary slightly (covers clothes fringes, hair, gestures)
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(11.0, 11.0))
+        val dilatedMask = Mat()
+        Imgproc.dilate(fullMaskMat, dilatedMask, kernel)
+
+        // Soft Gaussian blur on the mask for seamless alpha blending without hard cutout edges
+        val smoothMask = Mat()
+        Imgproc.GaussianBlur(dilatedMask, smoothMask, Size(15.0, 15.0), 0.0)
+
+        // Alpha blend: result = (currMat * (1 - alpha)) + (bgMat * alpha) where alpha is person mask
+        val smoothMask32F = Mat()
+        smoothMask.convertTo(smoothMask32F, CvType.CV_32FC1, 1.0 / 255.0)
+
+        val smoothMask3Ch = Mat()
+        val channels = ArrayList<Mat>(3)
+        channels.add(smoothMask32F)
+        channels.add(smoothMask32F)
+        channels.add(smoothMask32F)
+        Core.merge(channels, smoothMask3Ch)
+
+        val curr32F = Mat()
+        val bg32F = Mat()
+        currMat.convertTo(curr32F, CvType.CV_32FC3)
+        bgMat.convertTo(bg32F, CvType.CV_32FC3)
+
+        // currPart = curr32F * (1.0 - mask)
+        val invMask = Mat()
+        Core.subtract(Scalar.all(1.0), smoothMask3Ch, invMask)
+        val currPart = Mat()
+        Core.multiply(curr32F, invMask, currPart)
+
+        // bgPart = bg32F * mask
+        val bgPart = Mat()
+        Core.multiply(bg32F, smoothMask3Ch, bgPart)
+
+        // blended = currPart + bgPart
+        val blended32F = Mat()
+        Core.add(currPart, bgPart, blended32F)
+
         val resultMat = Mat()
-        currMat.copyTo(resultMat)
-        bgMat.copyTo(resultMat, fullMaskMat)
+        blended32F.convertTo(resultMat, CvType.CV_8UC3)
 
         val outBitmap = Bitmap.createBitmap(resultMat.cols(), resultMat.rows(), Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(resultMat, outBitmap)
@@ -638,7 +684,7 @@ class MainActivity : FlutterActivity() {
         val file = File(dstPath)
         file.parentFile?.mkdirs()
         FileOutputStream(file).use { out ->
-            outBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            outBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
         }
 
         outBitmap.recycle()
@@ -646,6 +692,18 @@ class MainActivity : FlutterActivity() {
         bgMat.release()
         rawMaskMat.release()
         fullMaskMat.release()
+        kernel.release()
+        dilatedMask.release()
+        smoothMask.release()
+        smoothMask32F.release()
+        smoothMask3Ch.release()
+        for (ch in channels) ch.release()
+        curr32F.release()
+        bg32F.release()
+        invMask.release()
+        currPart.release()
+        bgPart.release()
+        blended32F.release()
         resultMat.release()
 
         return true

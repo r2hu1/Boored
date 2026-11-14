@@ -264,6 +264,33 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                       ),
                     IconButton(
                       icon: Icon(
+                        captureState.removeLecturer
+                            ? Icons.person_off_rounded
+                            : Icons.person_rounded,
+                        color: captureState.removeLecturer
+                            ? Colors.white
+                            : Colors.white54,
+                      ),
+                      tooltip: captureState.removeLecturer
+                          ? 'Remove Professor: Enabled'
+                          : 'Remove Professor: Disabled',
+                      onPressed: () {
+                        ref.read(captureNotifierProvider.notifier).toggleRemoveLecturer();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              !captureState.removeLecturer
+                                  ? 'Professor removal enabled'
+                                  : 'Professor removal disabled',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(
                         _showOverlay ? Icons.crop_free : Icons.crop,
                         color: Colors.white,
                       ),
