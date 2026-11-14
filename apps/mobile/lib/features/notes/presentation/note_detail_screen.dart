@@ -326,69 +326,67 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       _currentKeyframeIndex = uniqueKeyframes.isNotEmpty ? uniqueKeyframes.length - 1 : 0;
     }
     final currentKeyframe = uniqueKeyframes[_currentKeyframeIndex];
+    final totalFrames = uniqueKeyframes.length;
 
     return Column(
       children: [
-        // Frame Viewport
+        // Frame Viewport with floating overlay badge
         Expanded(
-          child: Container(
-            color: isDark ? const Color(0xFF0B0F17) : const Color(0xFF0F172A),
-            child: Center(
-              child: File(currentKeyframe.imagePath).existsSync()
-                  ? Image.file(
-                      File(currentKeyframe.imagePath),
-                      key: ValueKey(currentKeyframe.id),
-                      fit: BoxFit.contain,
-                    )
-                  : const Icon(Icons.broken_image, size: 48, color: Colors.white24),
-            ),
-          ),
-        ),
-
-        // Event banner
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161B26) : const Color(0xFFF8FAFC),
-            border: Border(
-              top: BorderSide(
-                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
-                width: 1,
-              ),
-              bottom: BorderSide(
-                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Text(
-                'Frame ${_currentKeyframeIndex + 1} of ${uniqueKeyframes.length}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+              Container(
+                color: isDark ? const Color(0xFF070A0F) : const Color(0xFF0F172A),
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 3.5,
+                    child: File(currentKeyframe.imagePath).existsSync()
+                        ? Image.file(
+                            File(currentKeyframe.imagePath),
+                            key: ValueKey(currentKeyframe.id),
+                            fit: BoxFit.contain,
+                          )
+                        : const Icon(Icons.broken_image, size: 48, color: Colors.white24),
+                  ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: currentKeyframe.eventType == 'ERASE'
-                      ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                      : const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  currentKeyframe.eventType,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                    color: currentKeyframe.eventType == 'ERASE'
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF3B82F6),
+
+              // Floating minimal top badge
+              Positioned(
+                top: 12,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white12, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: currentKeyframe.eventType == 'ERASE'
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFF3B82F6),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_currentKeyframeIndex + 1} / $totalFrames',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -396,93 +394,138 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           ),
         ),
 
-        // Controls bar
+        // Lean unified control deck
         Container(
-          color: isDark ? const Color(0xFF111622) : Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111622) : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                width: 1,
+              ),
+            ),
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              // Scrubbing bar with timestamp/index indicator
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  trackHeight: 3,
+                  trackHeight: 3.5,
+                  activeTrackColor: theme.colorScheme.primary,
+                  inactiveTrackColor: isDark
+                      ? const Color(0xFF263045)
+                      : const Color(0xFFE2E8F0),
+                  thumbColor: theme.colorScheme.primary,
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                 ),
                 child: Slider(
                   value: _currentKeyframeIndex.toDouble(),
                   min: 0,
-                  max: (uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : 1).toDouble(),
-                  divisions: uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : null,
-                  onChanged: uniqueKeyframes.length > 1
+                  max: (totalFrames > 1 ? totalFrames - 1 : 1).toDouble(),
+                  divisions: totalFrames > 1 ? totalFrames - 1 : null,
+                  onChanged: totalFrames > 1
                       ? (val) {
                           setState(() => _currentKeyframeIndex = val.toInt());
                         }
                       : null,
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    iconSize: 22,
-                    icon: const Icon(Icons.skip_previous),
-                    onPressed: _currentKeyframeIndex > 0
-                        ? () => setState(() => _currentKeyframeIndex--)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    iconSize: 36,
-                    icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                    onPressed: uniqueKeyframes.length > 1
-                        ? () {
-                            setState(() => _isPlaying = !_isPlaying);
-                            if (_isPlaying) _startPlaybackLoop(uniqueKeyframes);
-                          }
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    iconSize: 22,
-                    icon: const Icon(Icons.skip_next),
-                    onPressed: _currentKeyframeIndex < uniqueKeyframes.length - 1
-                        ? () => setState(() => _currentKeyframeIndex++)
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () {
-                      setState(() {
-                        if (_playbackSpeed == 1.0) {
-                          _playbackSpeed = 2.0;
-                        } else if (_playbackSpeed == 2.0) {
-                          _playbackSpeed = 0.5;
-                        } else {
-                          _playbackSpeed = 1.0;
-                        }
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
-                          width: 1,
+
+              // Transport controls & playback speed
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Step back
+                    IconButton(
+                      iconSize: 22,
+                      icon: const Icon(Icons.skip_previous_rounded),
+                      tooltip: 'Previous frame',
+                      onPressed: _currentKeyframeIndex > 0
+                          ? () => setState(() => _currentKeyframeIndex--)
+                          : null,
+                    ),
+
+                    // Play / Pause central toggle
+                    GestureDetector(
+                      onTap: totalFrames > 1
+                          ? () {
+                              setState(() => _isPlaying = !_isPlaying);
+                              if (_isPlaying) _startPlaybackLoop(uniqueKeyframes);
+                            }
+                          : null,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
+                            width: 1,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${_playbackSpeed}x',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : const Color(0xFF475569),
+                        child: Icon(
+                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                          size: 26,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                     ),
-                  ),
-                ],
+
+                    // Step forward
+                    IconButton(
+                      iconSize: 22,
+                      icon: const Icon(Icons.skip_next_rounded),
+                      tooltip: 'Next frame',
+                      onPressed: _currentKeyframeIndex < totalFrames - 1
+                          ? () => setState(() => _currentKeyframeIndex++)
+                          : null,
+                    ),
+
+                    // Speed selector pill
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        setState(() {
+                          if (_playbackSpeed == 1.0) {
+                            _playbackSpeed = 1.5;
+                          } else if (_playbackSpeed == 1.5) {
+                            _playbackSpeed = 2.0;
+                          } else if (_playbackSpeed == 2.0) {
+                            _playbackSpeed = 0.5;
+                          } else {
+                            _playbackSpeed = 1.0;
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E2638) : const Color(0xFFF1F5F9),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
+                            width: 1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${_playbackSpeed}x',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            color: isDark ? Colors.white70 : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
