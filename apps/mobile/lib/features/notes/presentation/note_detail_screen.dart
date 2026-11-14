@@ -117,33 +117,84 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           );
         }
 
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+
         return Scaffold(
           appBar: AppBar(
-            title: Text(note.title),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(icon: Icon(Icons.timeline), text: 'Timeline'),
-                Tab(icon: Icon(Icons.grid_view), text: 'Pages'),
-                Tab(icon: Icon(Icons.picture_as_pdf_outlined), text: 'PDF'),
-              ],
+            elevation: 0,
+            title: Text(
+              note.title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(44),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorWeight: 2,
+                  labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
+                  tabs: const [
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.timeline, size: 16),
+                          SizedBox(width: 6),
+                          Text('Timeline'),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.grid_view, size: 16),
+                          SizedBox(width: 6),
+                          Text('Pages'),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.picture_as_pdf_outlined, size: 16),
+                          SizedBox(width: 6),
+                          Text('PDF'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             actions: [
               if (_isFinalizing)
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 14),
                   child: Center(
                     child: SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
                 )
               else
                 IconButton(
-                  icon: const Icon(Icons.auto_awesome),
-                  tooltip: 'Run Final Pass (Deocclude & OCR)',
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Process / Generate PDF',
                   onPressed: _runFinalPass,
                 ),
               IconButton(
@@ -167,8 +218,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     value: 'rename',
                     child: Row(
                       children: [
-                        Icon(Icons.edit_outlined, size: 20),
-                        SizedBox(width: 8),
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 10),
                         Text('Rename'),
                       ],
                     ),
@@ -177,9 +228,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     value: 'open_pdf',
                     child: Row(
                       children: [
-                        Icon(Icons.open_in_new, size: 20),
-                        SizedBox(width: 8),
-                        Text('Open PDF in App'),
+                        Icon(Icons.open_in_new, size: 18),
+                        SizedBox(width: 10),
+                        Text('Open externally'),
                       ],
                     ),
                   ),
@@ -187,8 +238,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     value: 'download_pdf',
                     child: Row(
                       children: [
-                        Icon(Icons.download_outlined, size: 20),
-                        SizedBox(width: 8),
+                        Icon(Icons.download_outlined, size: 18),
+                        SizedBox(width: 10),
                         Text('Save to Downloads'),
                       ],
                     ),
@@ -198,9 +249,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
+                        Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 18),
+                        SizedBox(width: 10),
+                        Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
                       ],
                     ),
                   ),
@@ -259,6 +310,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 
   Widget _buildTimelineTab(List<Keyframe> keyframes) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     // Deduplicate keyframes by unique imagePath while preserving sequence order
     final uniqueKeyframes = <Keyframe>[];
     final seenPaths = <String>{};
@@ -278,7 +332,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         // Frame Viewport
         Expanded(
           child: Container(
-            color: Colors.black,
+            color: isDark ? const Color(0xFF0B0F17) : const Color(0xFF0F172A),
             child: Center(
               child: File(currentKeyframe.imagePath).existsSync()
                   ? Image.file(
@@ -286,38 +340,55 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                       key: ValueKey(currentKeyframe.id),
                       fit: BoxFit.contain,
                     )
-                  : const Icon(Icons.broken_image, size: 64, color: Colors.white54),
+                  : const Icon(Icons.broken_image, size: 48, color: Colors.white24),
             ),
           ),
         ),
 
         // Event banner
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B26) : const Color(0xFFF8FAFC),
+            border: Border(
+              top: BorderSide(
+                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                width: 1,
+              ),
+              bottom: BorderSide(
+                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Keyframe ${_currentKeyframeIndex + 1} of ${uniqueKeyframes.length}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                'Frame ${_currentKeyframeIndex + 1} of ${uniqueKeyframes.length}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: currentKeyframe.eventType == 'ERASE'
-                      ? Colors.orange.shade100
-                      : Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(4),
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                      : const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   currentKeyframe.eventType,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                     color: currentKeyframe.eventType == 'ERASE'
-                        ? Colors.orange.shade900
-                        : Colors.blue.shade900,
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF3B82F6),
                   ),
                 ),
               ),
@@ -325,33 +396,43 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
           ),
         ),
 
-        // Controls
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        // Controls bar
+        Container(
+          color: isDark ? const Color(0xFF111622) : Colors.white,
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
           child: Column(
             children: [
-              Slider(
-                value: _currentKeyframeIndex.toDouble(),
-                min: 0,
-                max: (uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : 1).toDouble(),
-                divisions: uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : null,
-                onChanged: uniqueKeyframes.length > 1
-                    ? (val) {
-                        setState(() => _currentKeyframeIndex = val.toInt());
-                      }
-                    : null,
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                ),
+                child: Slider(
+                  value: _currentKeyframeIndex.toDouble(),
+                  min: 0,
+                  max: (uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : 1).toDouble(),
+                  divisions: uniqueKeyframes.length > 1 ? uniqueKeyframes.length - 1 : null,
+                  onChanged: uniqueKeyframes.length > 1
+                      ? (val) {
+                          setState(() => _currentKeyframeIndex = val.toInt());
+                        }
+                      : null,
+                ),
               ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
+                    iconSize: 22,
                     icon: const Icon(Icons.skip_previous),
                     onPressed: _currentKeyframeIndex > 0
                         ? () => setState(() => _currentKeyframeIndex--)
                         : null,
                   ),
+                  const SizedBox(width: 12),
                   IconButton(
-                    iconSize: 42,
+                    iconSize: 36,
                     icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
                     onPressed: uniqueKeyframes.length > 1
                         ? () {
@@ -360,14 +441,18 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                           }
                         : null,
                   ),
+                  const SizedBox(width: 12),
                   IconButton(
+                    iconSize: 22,
                     icon: const Icon(Icons.skip_next),
                     onPressed: _currentKeyframeIndex < uniqueKeyframes.length - 1
                         ? () => setState(() => _currentKeyframeIndex++)
                         : null,
                   ),
-                  TextButton(
-                    onPressed: () {
+                  const SizedBox(width: 16),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
                       setState(() {
                         if (_playbackSpeed == 1.0) {
                           _playbackSpeed = 2.0;
@@ -378,7 +463,24 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         }
                       });
                     },
-                    child: Text('${_playbackSpeed}x'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF2E384D) : const Color(0xFFCBD5E1),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${_playbackSpeed}x',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -406,18 +508,31 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 
   Widget _buildPagesGridTab(List<Keyframe> keyframes) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.1,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.15,
       ),
       itemCount: keyframes.length,
       itemBuilder: (context, index) {
         final kf = keyframes[index];
-        return Card(
+        final hasText = kf.extractedText != null && kf.extractedText!.trim().isNotEmpty;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161B26) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+              width: 1,
+            ),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
@@ -430,28 +545,50 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: File(kf.imagePath).existsSync()
-                      ? Image.file(File(kf.imagePath), fit: BoxFit.cover)
-                      : Container(color: Colors.grey.shade300),
+                  child: Container(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                    child: File(kf.imagePath).existsSync()
+                        ? Image.file(File(kf.imagePath), fit: BoxFit.cover)
+                        : Icon(
+                            Icons.broken_image,
+                            size: 24,
+                            color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
+                          ),
+                  ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Page ${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      if (kf.extractedText != null && kf.extractedText!.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.copy, size: 16),
-                          tooltip: 'Copy extracted text',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
+                      Text(
+                        'Page ${index + 1}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      if (hasText)
+                        GestureDetector(
+                          onTap: () {
                             Clipboard.setData(ClipboardData(text: kf.extractedText!));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Text copied to clipboard!')),
+                              const SnackBar(content: Text('Text copied')),
                             );
                           },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E2430) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Icon(
+                              Icons.copy,
+                              size: 14,
+                              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF64748B),
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -659,6 +796,8 @@ class _PdfTabState extends State<_PdfTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     if (_isLoadingPdf) {
       return const Center(child: CircularProgressIndicator());
@@ -669,12 +808,23 @@ class _PdfTabState extends State<_PdfTab>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.picture_as_pdf, size: 64, color: Colors.grey),
+            Icon(
+              Icons.picture_as_pdf_outlined,
+              size: 48,
+              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'PDF not generated yet',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : const Color(0xFF475569),
+              ),
+            ),
             const SizedBox(height: 16),
-            const Text('PDF has not been generated yet.'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.auto_awesome),
+            FilledButton.tonalIcon(
+              icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Generate Document PDF'),
               onPressed: widget.onRegenerate,
             ),
@@ -686,7 +836,7 @@ class _PdfTabState extends State<_PdfTab>
     return Stack(
       children: [
         Container(
-          color: Colors.grey.shade100,
+          color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
           child: PdfViewPinch(
             controller: _pdfController!,
             builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
@@ -701,11 +851,17 @@ class _PdfTabState extends State<_PdfTab>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const Icon(Icons.error_outline, size: 36, color: Color(0xFFEF4444)),
                     const SizedBox(height: 12),
-                    Text('Failed to render PDF: $error'),
+                    Text(
+                      'Failed to render PDF: $error',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white70 : const Color(0xFF475569),
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    FilledButton(
+                    OutlinedButton(
                       onPressed: _openPdfExternally,
                       child: const Text('Open in External Viewer'),
                     ),
@@ -716,36 +872,55 @@ class _PdfTabState extends State<_PdfTab>
           ),
         ),
         Positioned(
-          bottom: 16,
-          right: 16,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.extended(
-                heroTag: 'regenerate_pdf',
-                icon: const Icon(Icons.refresh),
-                label: const Text('Regenerate'),
-                onPressed: widget.onRegenerate,
+          bottom: 20,
+          right: 20,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E2430) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                width: 1,
               ),
-              const SizedBox(width: 12),
-              FloatingActionButton.extended(
-                heroTag: 'share_pdf',
-                icon: const Icon(Icons.share),
-                label: const Text('Share PDF'),
-                onPressed: () async {
-                  final appDir = await getApplicationDocumentsDirectory();
-                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
-                  if (File(pdfPath).existsSync()) {
-                    await SharePlus.instance.share(
-                      ShareParams(
-                        files: [XFile(pdfPath)],
-                        title: 'Whiteboard PDF',
-                      ),
-                    );
-                  }
-                },
-              ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: 'Regenerate',
+                  onPressed: widget.onRegenerate,
+                ),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.share_outlined, size: 20),
+                  tooltip: 'Share PDF',
+                  onPressed: () async {
+                    final appDir = await getApplicationDocumentsDirectory();
+                    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+                    if (File(pdfPath).existsSync()) {
+                      await SharePlus.instance.share(
+                        ShareParams(
+                          files: [XFile(pdfPath)],
+                          title: 'Whiteboard PDF',
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ],
