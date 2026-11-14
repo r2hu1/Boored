@@ -1,5 +1,6 @@
 package com.boored.boored
 
+import android.content.ClipData
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -173,11 +174,18 @@ class MainActivity : FlutterActivity() {
                 setDataAndType(uri, "application/pdf")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                clipData = ClipData.newUri(contentResolver, "Whiteboard PDF", uri)
             }
 
-            startActivity(intent)
+            val chooser = Intent.createChooser(intent, "Open PDF with").apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            startActivity(chooser)
             result.success(true)
         } catch (e: Exception) {
+            Log.e("BooredOpenPdf", "Failed to open PDF", e)
             result.error("OPEN_FAILED", e.message, null)
         }
     }
