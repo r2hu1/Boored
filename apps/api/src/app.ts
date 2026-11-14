@@ -43,3 +43,7 @@ export function createApp() {
 
   return app;
 }
+
+// Default export for Vercel when entrypoint points to app.ts
+const app = createApp();
+export default app;
