@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'core/constants/api_constants.dart';
@@ -6,6 +7,13 @@ import 'app/router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables from .env
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // If .env is missing in dev/test, defaults from ApiConstants are used
+  }
   
   // Explicitly initialize GoogleSignIn before UI runs
   await GoogleSignIn.instance.initialize(

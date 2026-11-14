@@ -662,8 +662,10 @@ class MainActivity : FlutterActivity() {
         bgMat.convertTo(bg32F, CvType.CV_32FC3)
 
         // currPart = curr32F * (1.0 - mask)
+        val onesMat = Mat(smoothMask3Ch.size(), smoothMask3Ch.type(), Scalar.all(1.0))
         val invMask = Mat()
-        Core.subtract(Scalar.all(1.0), smoothMask3Ch, invMask)
+        Core.subtract(onesMat, smoothMask3Ch, invMask)
+        onesMat.release()
         val currPart = Mat()
         Core.multiply(curr32F, invMask, currPart)
 
