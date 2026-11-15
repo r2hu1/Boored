@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Android (APK & AAB)
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -41,22 +41,13 @@ jobs:
           echo "API_BASE_URL=${{ secrets.API_BASE_URL }}" > .env
           echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env
 
-      - name: Build Android APK (Fat / Universal Release)
+      - name: Build Android Universal Release APK
         working-directory: apps/mobile
         run: flutter build apk --release
 
-      - name: Build Android App Bundle (AAB for Play Store)
-        working-directory: apps/mobile
-        run: flutter build appbundle --release
-
-      - name: Upload Release APK
+      - name: Upload Shareable Release APK
         uses: actions/upload-artifact@v4
         with:
           name: boored-release-apk
           path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
 
-      - name: Upload Release AAB (Play Store)
-        uses: actions/upload-artifact@v4
-        with:
-          name: boored-release-aab
-          path: apps/mobile/build/app/outputs/bundle/release/app-release.aab
