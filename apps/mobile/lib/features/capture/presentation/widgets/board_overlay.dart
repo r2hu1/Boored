@@ -41,6 +41,7 @@ class _BoardOverlayState extends State<BoardOverlay> {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
         return Stack(
+          fit: StackFit.expand,
           children: [
             CustomPaint(
               size: size,

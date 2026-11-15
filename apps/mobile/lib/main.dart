@@ -8,11 +8,12 @@ import 'app/router.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables from .env
+  // Load environment variables from .env asset
   try {
     await dotenv.load(fileName: '.env');
-  } catch (_) {
-    // If .env is missing in dev/test, defaults from ApiConstants are used
+    debugPrint('[Boored] Loaded .env: API_BASE_URL=${dotenv.env['API_BASE_URL']}');
+  } catch (e) {
+    debugPrint('[Boored] Failed to load .env: $e');
   }
   
   // Explicitly initialize GoogleSignIn before UI runs

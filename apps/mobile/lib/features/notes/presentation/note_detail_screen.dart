@@ -49,7 +49,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   // Timeline player state
   int _currentKeyframeIndex = 0;
   bool _isPlaying = false;
-  double _playbackSpeed = 1.0;
+  final double _playbackSpeed = 1.0;
 
   @override
   void initState() {
@@ -720,30 +720,34 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   Future<void> _confirmDelete(Note note) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Note?'),
-        content: Text('Delete "${note.title}"? You can undo this from the notes list.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+      builder: (dialogCtx) {
+        final errorColor = Theme.of(dialogCtx).colorScheme.error;
+        return AlertDialog(
+          title: const Text('Delete Note?'),
+          content: Text('Delete "${note.title}"? You can undo this from the notes list.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancel'),
             ),
-            onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: errorColor,
+              ),
+              onPressed: () => Navigator.of(dialogCtx).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
 
     if (!mounted || confirmed != true) return;
 
-    // Pop the screen first before triggering the database soft-delete
+    final noteId = widget.noteId;
+    final notifier = ref.read(notesNotifierProvider.notifier);
     context.pop();
-    ref.read(notesNotifierProvider.notifier).deleteNote(widget.noteId);
+    notifier.deleteNote(noteId);
   }
 }
 

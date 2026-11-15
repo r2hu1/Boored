@@ -201,79 +201,95 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-          // Board cropping overlay sitting directly on viewport coordinates
-          if (_showOverlay)
-            Positioned.fill(
-              child: BoardOverlay(
-                corners: _corners,
-                editable: captureState.phase != CapturePhase.recording,
-                onCornersChanged: (corners) {
-                  setState(() => _corners = corners);
-                },
-              ),
-            ),
-
-          // Top bar
+          // Top floating action pill
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    IconButton(
+                    IconButton.filledTonal(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: 0.45),
+                      ),
                       onPressed: () => _handleBack(captureState),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        widget.noteTitle,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 16),
-                        overflow: TextOverflow.ellipsis,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (captureState.phase == CapturePhase.recording) ...[
+                              _RecordingBadge(
+                                elapsed: captureState.elapsed,
+                                frames: captureState.framesCaptured,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: Text(
+                                widget.noteTitle,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     if (captureState.phase != CapturePhase.recording)
-                      IconButton(
+                      IconButton.filledTonal(
                         icon: _isAutoDetecting
                             ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 18,
+                                height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.auto_fix_high, color: Colors.white),
+                            : const Icon(Icons.auto_fix_high, color: Colors.white, size: 20),
                         tooltip: 'Auto-detect board corners',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black.withValues(alpha: 0.45),
+                        ),
                         onPressed: _isAutoDetecting ? null : _autoDetectCorners,
                       ),
-                    IconButton(
+                    const SizedBox(width: 4),
+                    IconButton.filledTonal(
                       icon: Icon(
                         captureState.removeLecturer
                             ? Icons.person_off_rounded
                             : Icons.person_rounded,
                         color: captureState.removeLecturer
-                            ? Colors.white
-                            : Colors.white54,
+                            ? const Color(0xFF60A5FA)
+                            : Colors.white60,
+                        size: 20,
                       ),
                       tooltip: captureState.removeLecturer
                           ? 'Remove Professor: Enabled'
                           : 'Remove Professor: Disabled',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: 0.45),
+                      ),
                       onPressed: () {
                         ref.read(captureNotifierProvider.notifier).toggleRemoveLecturer();
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -289,110 +305,126 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                         );
                       },
                     ),
-                    IconButton(
-                      icon: Icon(
-                        _showOverlay ? Icons.crop_free : Icons.crop,
-                        color: Colors.white,
-                      ),
-                      tooltip: _showOverlay ? 'Hide Outline' : 'Show Outline',
-                      onPressed: () => setState(() => _showOverlay = !_showOverlay),
-                    ),
-                    if (captureState.phase == CapturePhase.recording)
-                      _RecordingBadge(
-                        elapsed: captureState.elapsed,
-                        frames: captureState.framesCaptured,
-                      ),
                   ],
                 ),
               ),
             ),
           ),
 
-          // Bottom controls
+          // Bottom modern control deck
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
-              top: false,
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.transparent,
+            child: IgnorePointer(
+              ignoring: false,
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.85),
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.65, 1.0],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      // Interval selector pill
+                      _IntervalSelector(
+                        currentInterval: captureState.intervalSeconds,
+                        enabled: captureState.phase != CapturePhase.recording,
+                        onChanged: (v) => ref
+                            .read(captureNotifierProvider.notifier)
+                            .setInterval(v),
+                      ),
+
+                      // Record / Pause button (Modern M3 layout)
+                      _RecordButton(
+                        isRecording: captureState.phase == CapturePhase.recording,
+                        isPaused: captureState.phase == CapturePhase.paused,
+                        enabled: captureState.phase == CapturePhase.previewing ||
+                            captureState.phase == CapturePhase.recording ||
+                            captureState.phase == CapturePhase.paused,
+                        onPressed: () => _toggleRecording(captureState),
+                      ),
+
+                      // Action pill or Stats counter
+                      if (captureState.phase == CapturePhase.paused ||
+                          captureState.phase == CapturePhase.recording ||
+                          captureState.framesCaptured > 0)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: IconButton(
+                            iconSize: 26,
+                            icon: const Icon(Icons.check_rounded, color: Color(0xFF34D399)),
+                            tooltip: 'Finish Recording',
+                            onPressed: () => _finishRecording(),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: 72,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${captureState.keyframesSaved}',
+                                style: const TextStyle(
+                                  color: Colors.amberAccent,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const Text(
+                                'keyframes',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Interval selector
-                    _IntervalSelector(
-                      currentInterval: captureState.intervalSeconds,
-                      enabled: captureState.phase != CapturePhase.recording,
-                      onChanged: (v) => ref
-                          .read(captureNotifierProvider.notifier)
-                          .setInterval(v),
-                    ),
-                    // Record / Pause button
-                    _RecordButton(
-                      isRecording:
-                          captureState.phase == CapturePhase.recording,
-                      isPaused: captureState.phase == CapturePhase.paused,
-                      enabled: captureState.phase == CapturePhase.previewing ||
-                          captureState.phase == CapturePhase.recording ||
-                          captureState.phase == CapturePhase.paused,
-                      onPressed: () => _toggleRecording(captureState),
-                    ),
-                    // Finish button when paused or recording
-                    if (captureState.phase == CapturePhase.paused ||
-                        captureState.phase == CapturePhase.recording ||
-                        captureState.framesCaptured > 0)
-                      IconButton.filled(
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          padding: const EdgeInsets.all(12),
-                        ),
-                        icon: const Icon(Icons.check, color: Colors.white, size: 28),
-                        tooltip: 'Finish Recording',
-                        onPressed: () => _finishRecording(),
-                      )
-                    else
-                      // Frame & Keyframe counters
-                      SizedBox(
-                        width: 80,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${captureState.keyframesSaved} keyframes',
-                              style: const TextStyle(
-                                color: Colors.amberAccent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            Text(
-                              '${captureState.framesCaptured} frames',
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 10,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
                 ),
               ),
             ),
           ),
+
+          // Board cropping overlay sitting on top so corner handles receive all touches directly
+          if (_showOverlay)
+            Positioned.fill(
+              child: BoardOverlay(
+                corners: _corners,
+                editable: captureState.phase != CapturePhase.recording,
+                onCornersChanged: (corners) {
+                  setState(() => _corners = corners);
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -488,28 +520,43 @@ class _RecordButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: enabled ? onPressed : null,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 72,
-        height: 72,
+        width: 80,
+        height: 80,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 4),
+          border: Border.all(
+            color: isRecording
+                ? const Color(0xFFEF4444).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.85),
+            width: 4,
+          ),
         ),
-        padding: const EdgeInsets.all(4),
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: isRecording ? 28 : (isPaused ? 48 : 56),
-            height: isRecording ? 28 : (isPaused ? 48 : 56),
-            decoration: BoxDecoration(
-              color: isRecording ? Colors.red : (isPaused ? Colors.amber : Colors.red.shade400),
-              shape: isRecording ? BoxShape.rectangle : BoxShape.circle,
-              borderRadius: isRecording ? BorderRadius.circular(6) : null,
-            ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOutCubic,
+          width: isRecording ? 32 : (isPaused ? 54 : 62),
+          height: isRecording ? 32 : (isPaused ? 54 : 62),
+          decoration: BoxDecoration(
+            color: isRecording
+                ? const Color(0xFFEF4444)
+                : (isPaused ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+            borderRadius: BorderRadius.circular(isRecording ? 8 : 32),
+            boxShadow: [
+              BoxShadow(
+                color: (isRecording ? const Color(0xFFEF4444) : Colors.black).withValues(alpha: 0.3),
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Center(
             child: isPaused
-                ? const Icon(Icons.play_arrow, color: Colors.black, size: 30)
+                ? const Icon(Icons.play_arrow_rounded, color: Colors.black87, size: 32)
                 : (isRecording
-                    ? const Icon(Icons.pause, color: Colors.white, size: 20)
+                    ? const Icon(Icons.pause_rounded, color: Colors.white, size: 22)
                     : null),
           ),
         ),
@@ -542,18 +589,29 @@ class _IntervalSelector extends StatelessWidget {
           .toList(),
       child: Container(
         width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: enabled ? 0.12 : 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: enabled ? 0.2 : 0.05),
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.timer_outlined,
-                color: enabled ? Colors.white : Colors.white38, size: 20),
+            Icon(
+              Icons.timer_outlined,
+              color: enabled ? Colors.white : Colors.white38,
+              size: 20,
+            ),
             const SizedBox(height: 2),
             Text(
               '${currentInterval}s',
               style: TextStyle(
                 color: enabled ? Colors.white : Colors.white38,
                 fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
