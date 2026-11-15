@@ -10,6 +10,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -45,9 +47,22 @@ jobs:
         working-directory: apps/mobile
         run: flutter build apk --release
 
-      - name: Upload Shareable Release APK
+      - name: Upload Shareable Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: boored-release-apk
           path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          name: Release ${{ github.ref_name || 'Latest' }}
+          tag_name: ${{ github.ref_name || 'latest' }}
+          files: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
