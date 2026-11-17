@@ -42,9 +42,10 @@ class NoteDetailScreen extends ConsumerStatefulWidget {
 
 class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+  late TabController _tabController;
   bool _isFinalizing = false;
   int _pdfReloadTrigger = 0;
+  bool _hasDigitalPdf = false;
 
   // Timeline player state
   int _currentKeyframeIndex = 0;
@@ -55,12 +56,105 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _checkDigitalPdfExists();
+  }
+
+  Future<void> _checkDigitalPdfExists() async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final digitalPdf = File(p.join(appDir.path, 'captures', widget.noteId, 'digital.pdf'));
+      final exists = await digitalPdf.exists();
+      if (mounted && exists != _hasDigitalPdf) {
+        setState(() {
+          final oldIndex = _tabController.index;
+          _tabController.dispose();
+          _hasDigitalPdf = exists;
+          _tabController = TabController(
+            length: _hasDigitalPdf ? 4 : 3,
+            vsync: this,
+            initialIndex: oldIndex.clamp(0, (_hasDigitalPdf ? 4 : 3) - 1),
+          );
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _extractTextAndMakeDigitalCopy() async {
+    setState(() => _isFinalizing = true);
+    try {
+      final db = ref.read(databaseProvider);
+      final keyframesDao = KeyframesDao(db);
+      final rawKeyframes = await keyframesDao.getKeyframesForNote(widget.noteId);
+
+      if (rawKeyframes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No keyframes available to extract text')),
+          );
+        }
+        return;
+      }
+
+      final recognizer = MLKitRecognitionEngine();
+      int extractedCount = 0;
+
+      for (final kf in rawKeyframes) {
+        if (File(kf.imagePath).existsSync()) {
+          final text = await recognizer.extractText(kf.imagePath);
+          await keyframesDao.updateKeyframeText(kf.id, text);
+          if (text.trim().isNotEmpty) extractedCount++;
+        }
+      }
+      await recognizer.dispose();
+
+      // Generate digital PDF and save on device
+      final finalizer = SessionFinalizer(
+        notesDao: NotesDao(db),
+        keyframesDao: keyframesDao,
+        recognitionEngine: recognizer,
+        lecturerRemovalProcessor: LecturerRemovalProcessor(
+          segmenter: MLKitSegmentationEngine(),
+          openCVService: OpenCVService(),
+        ),
+      );
+
+      final digitalPath = await finalizer.generateDigitalPdf(widget.noteId);
+      await _checkDigitalPdfExists();
+
+      if (mounted) {
+        setState(() {
+          _pdfReloadTrigger++;
+          if (_hasDigitalPdf) {
+            _tabController.animateTo(3);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              digitalPath != null
+                  ? 'OCR text extracted ($extractedCount frames). Digital copy saved!'
+                  : 'Digital copy created!',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error extracting text: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFinalizing = false);
+    }
   }
 
   Future<void> _runFinalPass({bool removeLecturer = true}) async {
@@ -78,6 +172,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       );
 
       await finalizer.finalizeNote(widget.noteId, removeLecturer: removeLecturer);
+      await _checkDigitalPdfExists();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -150,8 +245,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   indicatorWeight: 2,
                   labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
-                  tabs: const [
-                    Tab(
+                  tabs: [
+                    const Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -161,7 +256,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
-                    Tab(
+                    const Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -171,7 +266,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
-                    Tab(
+                    const Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -181,6 +276,17 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
+                    if (_hasDigitalPdf)
+                      const Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.description_outlined, size: 16),
+                            SizedBox(width: 6),
+                            Text('Digital'),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -214,6 +320,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               ),
               PopupMenuButton<String>(
                 onSelected: (val) {
+                  if (val == 'extract_ocr') _extractTextAndMakeDigitalCopy();
                   if (val == 'remove_professor') _runFinalPass(removeLecturer: true);
                   if (val == 'rename') _showRenameDialog(note);
                   if (val == 'open_pdf') _openPdfExternally();
@@ -221,6 +328,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   if (val == 'delete') _confirmDelete(note);
                 },
                 itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'extract_ocr',
+                    child: Row(
+                      children: [
+                        Icon(Icons.document_scanner_outlined, size: 18),
+                        SizedBox(width: 10),
+                        Text('Extract text (OCR)'),
+                      ],
+                    ),
+                  ),
                   const PopupMenuItem(
                     value: 'remove_professor',
                     child: Row(
@@ -312,10 +429,20 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     _buildTimelineTab(keyframes),
                     _buildPagesGridTab(keyframes),
                     _PdfTab(
-                      key: ValueKey('${widget.noteId}_$_pdfReloadTrigger'),
+                      key: ValueKey('${widget.noteId}_doc_$_pdfReloadTrigger'),
                       noteId: widget.noteId,
+                      fileName: 'document.pdf',
+                      title: 'Document PDF',
                       onRegenerate: _runFinalPass,
                     ),
+                    if (_hasDigitalPdf)
+                      _PdfTab(
+                        key: ValueKey('${widget.noteId}_digital_$_pdfReloadTrigger'),
+                        noteId: widget.noteId,
+                        fileName: 'digital.pdf',
+                        title: 'Digital Copy',
+                        onRegenerate: _extractTextAndMakeDigitalCopy,
+                      ),
                   ],
                 );
               },
@@ -808,11 +935,15 @@ class _RenameNoteDialogState extends State<_RenameNoteDialog> {
 
 class _PdfTab extends StatefulWidget {
   final String noteId;
+  final String fileName;
+  final String title;
   final VoidCallback onRegenerate;
 
   const _PdfTab({
     super.key,
     required this.noteId,
+    this.fileName = 'document.pdf',
+    this.title = 'Document PDF',
     required this.onRegenerate,
   });
 
@@ -844,7 +975,7 @@ class _PdfTabState extends State<_PdfTab>
     setState(() => _isLoadingPdf = true);
     try {
       final appDir = await getApplicationDocumentsDirectory();
-      final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+      final pdfPath = p.join(appDir.path, 'captures', widget.noteId, widget.fileName);
       final file = File(pdfPath);
       if (file.existsSync()) {
         final ctrl = PdfControllerPinch(
@@ -867,12 +998,12 @@ class _PdfTabState extends State<_PdfTab>
 
   Future<void> _openPdfExternally() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+    final pdfPath = p.join(appDir.path, 'captures', widget.noteId, widget.fileName);
     final file = File(pdfPath);
     if (!file.existsSync()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please generate PDF first')),
+          SnackBar(content: Text('Please generate ${widget.title} first')),
         );
       }
       return;
@@ -902,7 +1033,7 @@ class _PdfTabState extends State<_PdfTab>
             ),
             const SizedBox(height: 12),
             Text(
-              'PDF not generated yet',
+              '${widget.title} not generated yet',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
@@ -912,7 +1043,7 @@ class _PdfTabState extends State<_PdfTab>
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Generate Document PDF'),
+              label: Text('Generate ${widget.title}'),
               onPressed: widget.onRegenerate,
             ),
           ],
@@ -965,23 +1096,23 @@ class _PdfTabState extends State<_PdfTab>
             mainAxisSize: MainAxisSize.min,
             children: [
               FloatingActionButton.small(
-                heroTag: 'regenerate_pdf_btn',
-                tooltip: 'Regenerate PDF',
+                heroTag: 'regenerate_${widget.fileName}_btn',
+                tooltip: 'Regenerate ${widget.title}',
                 onPressed: widget.onRegenerate,
                 child: const Icon(Icons.refresh),
               ),
               const SizedBox(height: 12),
               FloatingActionButton(
-                heroTag: 'share_pdf_btn',
-                tooltip: 'Share PDF',
+                heroTag: 'share_${widget.fileName}_btn',
+                tooltip: 'Share ${widget.title}',
                 onPressed: () async {
                   final appDir = await getApplicationDocumentsDirectory();
-                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, 'document.pdf');
+                  final pdfPath = p.join(appDir.path, 'captures', widget.noteId, widget.fileName);
                   if (File(pdfPath).existsSync()) {
                     await SharePlus.instance.share(
                       ShareParams(
                         files: [XFile(pdfPath)],
-                        title: 'Whiteboard PDF',
+                        title: widget.title,
                       ),
                     );
                   }

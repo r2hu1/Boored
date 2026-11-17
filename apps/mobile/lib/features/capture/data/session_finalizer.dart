@@ -111,9 +111,155 @@ class SessionFinalizer {
     final pdfFile = File(pdfPath);
     await pdfFile.writeAsBytes(await pdf.save());
 
+    // Step 5b: Digital OCR PDF document generation (if OCR text extracted)
+    await generateDigitalPdf(noteId);
+
     // Step 6: Mark note as ready
     await notesDao.updateNote(noteId, status: 'ready');
 
     return pdfPath;
+  }
+
+  /// Generates a clean digital document PDF from extracted OCR text across all keyframes.
+  Future<String?> generateDigitalPdf(String noteId) async {
+    final note = await notesDao.getNoteById(noteId);
+    final keyframes = await keyframesDao.getKeyframesForNote(noteId);
+    if (keyframes.isEmpty) return null;
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final noteDir = Directory(p.join(appDir.path, 'captures', noteId));
+    if (!noteDir.existsSync()) {
+      noteDir.createSync(recursive: true);
+    }
+
+    final digitalPdf = pw.Document();
+    final title = note?.title ?? 'Digital Notes';
+
+    // Filter frames that have non-empty text, or use unique frames
+    final framesWithContent = keyframes.where((k) => (k.extractedText ?? '').trim().isNotEmpty).toList();
+    final pagesToRender = framesWithContent.isNotEmpty ? framesWithContent : keyframes;
+
+    for (int i = 0; i < pagesToRender.length; i++) {
+      final kf = pagesToRender[i];
+      final textContent = (kf.extractedText ?? '').trim();
+
+      digitalPdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 36),
+          header: (pw.Context ctx) => pw.Container(
+            padding: const pw.EdgeInsets.only(bottom: 12),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.8),
+              ),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  title,
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  'Section ${i + 1} of ${pagesToRender.length}',
+                  style: const pw.TextStyle(
+                    fontSize: 9,
+                    color: PdfColors.grey500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          footer: (pw.Context ctx) => pw.Container(
+            padding: const pw.EdgeInsets.only(top: 10),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                top: pw.BorderSide(color: PdfColors.grey300, width: 0.8),
+              ),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Boored Digital Copy',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                ),
+                pw.Text(
+                  'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                ),
+              ],
+            ),
+          ),
+          build: (pw.Context ctx) {
+            return [
+              pw.Container(
+                margin: const pw.EdgeInsets.only(top: 8, bottom: 16),
+                child: pw.Row(
+                  children: [
+                    pw.Container(
+                      width: 4,
+                      height: 18,
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.blue700,
+                        borderRadius: pw.BorderRadius.all(pw.Radius.circular(2)),
+                      ),
+                    ),
+                    pw.SizedBox(width: 8),
+                    pw.Text(
+                      'Page ${i + 1}',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blueGrey900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (textContent.isNotEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(14),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey50,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                    border: pw.Border.all(color: PdfColors.grey200, width: 0.8),
+                  ),
+                  child: pw.Paragraph(
+                    text: textContent,
+                    style: const pw.TextStyle(
+                      fontSize: 11,
+                      lineSpacing: 3.5,
+                      color: PdfColors.black,
+                    ),
+                  ),
+                )
+              else
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  child: pw.Text(
+                    '[No text detected on this board]',
+                    style: const pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.grey500,
+                      fontStyle: pw.FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ];
+          },
+        ),
+      );
+    }
+
+    final digitalPdfPath = p.join(noteDir.path, 'digital.pdf');
+    final digitalPdfFile = File(digitalPdfPath);
+    await digitalPdfFile.writeAsBytes(await digitalPdf.save());
+    return digitalPdfPath;
   }
 }
