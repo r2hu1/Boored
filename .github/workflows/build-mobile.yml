@@ -50,11 +50,24 @@ jobs:
             --dart-define=API_BASE_URL="${{ secrets.API_BASE_URL }}" \
             --dart-define=GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
 
+      - name: Build Android App Bundle (AAB for Google Play)
+        working-directory: apps/mobile
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="${{ secrets.API_BASE_URL }}" \
+            --dart-define=GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+
       - name: Upload Shareable Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: boored-release-apk
           path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Google Play AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: boored-release-aab
+          path: apps/mobile/build/app/outputs/bundle/release/app-release.aab
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -62,7 +75,9 @@ jobs:
         with:
           name: Release ${{ github.ref_name || 'Latest' }}
           tag_name: ${{ github.ref_name || 'latest' }}
-          files: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          files: |
+            apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+            apps/mobile/build/app/outputs/bundle/release/app-release.aab
           generate_release_notes: true
           draft: false
           prerelease: false
