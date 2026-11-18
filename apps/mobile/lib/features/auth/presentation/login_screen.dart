@@ -19,10 +19,26 @@ class LoginScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              Icon(
-                Icons.auto_stories_rounded,
-                size: 72,
-                color: theme.colorScheme.primary,
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Text(
