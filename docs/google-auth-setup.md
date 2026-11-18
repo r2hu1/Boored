@@ -40,26 +40,36 @@ To enable Google Sign-In on Android and token verification on the Hono backend, 
 
 ---
 
-## 4. Create Android Client ID (Mobile App)
-1. In **APIs & Services** > **Credentials**, click **Create Credentials** > **OAuth client ID**.
-2. Application type: **Android**.
-3. Name: `Boored Android Debug`.
-4. Package name: `com.boored.boored`
-5. SHA-1 certificate fingerprint:
+## 4. Create Android Client IDs (Mobile App)
+
+You need **two** Android OAuth client IDs in Google Cloud Console:
+
+### A. Local / GitHub APK Debug Client
+1. Application type: **Android**.
+2. Name: `Boored Android Debug / Direct APK`.
+3. Package name: `com.boored.boored`
+4. SHA-1 certificate fingerprint:
    ```
    A0:C2:AF:2D:75:5E:2E:9C:6A:97:85:45:42:C5:BE:2E:16:E8:30:F0
    ```
-   *(Retrieved directly from your local `~/.android/debug.keystore`)*
-6. Click **Create**.
 
-> [!NOTE]
-> When generating a production release build later, run `keytool -list -v -keystore <your-release-key.jks>` and add a second Android Client ID with the release SHA-1 fingerprint.
+### B. Google Play App Signing Client (Production / Play Store)
+1. In **APIs & Services** > **Credentials**, click **Create Credentials** > **OAuth client ID**.
+2. Application type: **Android**.
+3. Name: `Boored Google Play Release`.
+4. Package name: `com.boored.boored`
+5. SHA-1 certificate fingerprint:
+   ```
+   42:0A:FA:6E:BA:9F:75:4C:26:5A:9D:FF:9B:47:C2:DB:C7:91:AA:49
+   ```
+6. Click **Create**.
 
 ---
 
 ## Summary of Credentials Needed
 | Credential | Value / Location | Used By |
 |---|---|---|
-| Package Name | `com.boored.boored` | Android OAuth Client |
-| Debug SHA-1 | `A0:C2:AF:2D:75:5E:2E:9C:6A:97:85:45:42:C5:BE:2E:16:E8:30:F0` | Android OAuth Client |
+| Package Name | `com.boored.boored` | Android OAuth Clients |
+| Debug / Direct APK SHA-1 | `A0:C2:AF:2D:75:5E:2E:9C:6A:97:85:45:42:C5:BE:2E:16:E8:30:F0` | Direct APK Installations |
+| Google Play App Signing SHA-1 | `42:0A:FA:6E:BA:9F:75:4C:26:5A:9D:FF:9B:47:C2:DB:C7:91:AA:49` | Google Play Store Installs |
 | Web Client ID | From Step 3 | `.env` (`GOOGLE_CLIENT_ID`) & Flutter `serverClientId` |
