@@ -201,6 +201,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
+          // Board cropping overlay sitting directly over camera preview
+          if (_showOverlay)
+            Positioned.fill(
+              child: BoardOverlay(
+                corners: _corners,
+                editable: captureState.phase != CapturePhase.recording,
+                onCornersChanged: (corners) {
+                  setState(() => _corners = corners);
+                },
+              ),
+            ),
+
           // Top floating action pill
           Positioned(
             top: 0,
@@ -316,115 +328,100 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
             bottom: 0,
             left: 0,
             right: 0,
-            child: IgnorePointer(
-              ignoring: false,
-              child: SafeArea(
-                top: false,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.85),
-                        Colors.black.withValues(alpha: 0.45),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.65, 1.0],
-                    ),
+            child: SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.85),
+                      Colors.black.withValues(alpha: 0.45),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.65, 1.0],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      // Interval selector pill
-                      _IntervalSelector(
-                        currentInterval: captureState.intervalSeconds,
-                        enabled: captureState.phase != CapturePhase.recording,
-                        onChanged: (v) => ref
-                            .read(captureNotifierProvider.notifier)
-                            .setInterval(v),
-                      ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    // Interval selector pill
+                    _IntervalSelector(
+                      currentInterval: captureState.intervalSeconds,
+                      enabled: captureState.phase != CapturePhase.recording,
+                      onChanged: (v) => ref
+                          .read(captureNotifierProvider.notifier)
+                          .setInterval(v),
+                    ),
 
-                      // Record / Pause button (Modern M3 layout)
-                      _RecordButton(
-                        isRecording: captureState.phase == CapturePhase.recording,
-                        isPaused: captureState.phase == CapturePhase.paused,
-                        enabled: captureState.phase == CapturePhase.previewing ||
-                            captureState.phase == CapturePhase.recording ||
-                            captureState.phase == CapturePhase.paused,
-                        onPressed: () => _toggleRecording(captureState),
-                      ),
-
-                      // Action pill or Stats counter
-                      if (captureState.phase == CapturePhase.paused ||
+                    // Record / Pause button (Modern M3 layout)
+                    _RecordButton(
+                      isRecording: captureState.phase == CapturePhase.recording,
+                      isPaused: captureState.phase == CapturePhase.paused,
+                      enabled: captureState.phase == CapturePhase.previewing ||
                           captureState.phase == CapturePhase.recording ||
-                          captureState.framesCaptured > 0)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: IconButton(
-                            iconSize: 26,
-                            icon: const Icon(Icons.check_rounded, color: Color(0xFF34D399)),
-                            tooltip: 'Finish Recording',
-                            onPressed: () => _finishRecording(),
-                          ),
-                        )
-                      else
-                        Container(
-                          width: 72,
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${captureState.keyframesSaved}',
-                                style: const TextStyle(
-                                  color: Colors.amberAccent,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const Text(
-                                'keyframes',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                          captureState.phase == CapturePhase.paused,
+                      onPressed: () => _toggleRecording(captureState),
+                    ),
+
+                    // Action pill or Stats counter
+                    if (captureState.phase == CapturePhase.paused ||
+                        captureState.phase == CapturePhase.recording ||
+                        captureState.framesCaptured > 0)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                            width: 1.5,
                           ),
                         ),
-                    ],
-                  ),
+                        child: IconButton(
+                          iconSize: 26,
+                          icon: const Icon(Icons.check_rounded, color: Color(0xFF34D399)),
+                          tooltip: 'Finish Recording',
+                          onPressed: () => _finishRecording(),
+                        ),
+                      )
+                    else
+                      Container(
+                        width: 72,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${captureState.keyframesSaved}',
+                              style: const TextStyle(
+                                color: Colors.amberAccent,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const Text(
+                              'keyframes',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
           ),
-
-          // Board cropping overlay sitting on top so corner handles receive all touches directly
-          if (_showOverlay)
-            Positioned.fill(
-              child: BoardOverlay(
-                corners: _corners,
-                editable: captureState.phase != CapturePhase.recording,
-                onCornersChanged: (corners) {
-                  setState(() => _corners = corners);
-                },
-              ),
-            ),
         ],
       ),
     );

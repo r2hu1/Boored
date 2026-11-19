@@ -43,9 +43,11 @@ class _BoardOverlayState extends State<BoardOverlay> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            CustomPaint(
-              size: size,
-              painter: _BoardOutlinePainter(corners: widget.corners),
+            IgnorePointer(
+              child: CustomPaint(
+                size: size,
+                painter: _BoardOutlinePainter(corners: widget.corners),
+              ),
             ),
             if (widget.editable)
               for (int i = 0; i < widget.corners.length; i++)
