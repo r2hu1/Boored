@@ -5,7 +5,7 @@ import '../domain/segmentation_engine.dart';
 class MLKitSegmentationEngine implements SegmentationEngine {
   final SelfieSegmenter _segmenter = SelfieSegmenter(
     mode: SegmenterMode.single,
-    enableRawSizeMask: true,
+    enableRawSizeMask: false,
   );
 
   @override

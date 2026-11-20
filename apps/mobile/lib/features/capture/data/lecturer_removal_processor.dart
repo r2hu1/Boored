@@ -37,7 +37,7 @@ class LecturerRemovalProcessor {
       for (final path in keyframePaths) {
         final mask = masks[path];
         if (mask != null) {
-          final count = mask.confidences.where((c) => c > 0.40).length;
+          final count = mask.confidences.where((c) => c > 0.25).length;
           if (count < minPersonPixels) {
             minPersonPixels = count;
             bestPath = path;
@@ -55,11 +55,25 @@ class LecturerRemovalProcessor {
         latestCleanFrame = path;
         cleanOutputs.add(path);
       } else {
-        if (latestCleanFrame != null && latestCleanFrame != path) {
+        // Find best reference frame: prefer latestCleanFrame, otherwise search any frame where person was in a different spot
+        String? referenceFrame = (latestCleanFrame != null && latestCleanFrame != path)
+            ? latestCleanFrame
+            : null;
+
+        if (referenceFrame == null) {
+          for (final candidate in keyframePaths) {
+            if (candidate != path) {
+              referenceFrame = candidate;
+              break;
+            }
+          }
+        }
+
+        if (referenceFrame != null && referenceFrame != path) {
           final compositedPath = path.replaceAll('.jpg', '_deoccluded_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
           final success = await openCVService.compositeUnoccluded(
             currentPath: path,
-            cleanBackgroundPath: latestCleanFrame,
+            cleanBackgroundPath: referenceFrame,
             dstPath: compositedPath,
             maskConfidences: mask.confidences,
             maskWidth: mask.width,

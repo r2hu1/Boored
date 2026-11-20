@@ -17,9 +17,9 @@ class SegmentationMaskResult {
   bool get hasPerson {
     int count = 0;
     for (final c in confidences) {
-      if (c > 0.40) count++;
+      if (c > 0.25) count++;
     }
-    // Person detected if more than 0.5% of total mask area has confidence > 0.40
-    return count > (confidences.length * 0.005);
+    // Person detected if more than 0.2% of total mask area has confidence > 0.25
+    return count > (confidences.length * 0.002);
   }
 }
