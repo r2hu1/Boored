@@ -138,6 +138,24 @@ class OpenCVService {
     }
   }
 
+  Future<String?> preprocessForOcr({
+    required String srcPath,
+    required String dstPath,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>(
+        'preprocessForOcr',
+        {
+          'srcPath': srcPath,
+          'dstPath': dstPath,
+        },
+      );
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static const List<BoardCorner> _defaultCorners = [
     BoardCorner(0.08, 0.08),
     BoardCorner(0.92, 0.08),

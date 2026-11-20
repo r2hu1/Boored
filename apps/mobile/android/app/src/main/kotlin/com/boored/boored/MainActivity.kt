@@ -45,6 +45,7 @@ class MainActivity : FlutterActivity() {
                 "enhanceWhiteboard" -> handleEnhance(call, result)
                 "detectFrameChange" -> handleDetectChange(call, result)
                 "compositeUnoccluded" -> handleComposite(call, result)
+                "preprocessForOcr" -> handlePreprocessOcr(call, result)
                 "openPdf" -> handleOpenPdf(call, result)
                 else -> result.notImplemented()
             }
@@ -141,6 +142,33 @@ class MainActivity : FlutterActivity() {
                 val changeData = detectChangeNative(prevPath, currPath)
                 withContext(Dispatchers.Main) {
                     result.success(changeData)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("OPENCV_ERROR", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun handlePreprocessOcr(call: MethodCall, result: MethodChannel.Result) {
+        val srcPath = call.argument<String>("srcPath")
+        val dstPath = call.argument<String>("dstPath")
+
+        if (srcPath == null || dstPath == null) {
+            result.error("INVALID_ARGUMENT", "srcPath and dstPath are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val success = preprocessForOcrNative(srcPath, dstPath)
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        result.success(dstPath)
+                    } else {
+                        result.error("PREPROCESS_FAILED", "Failed to preprocess image for OCR", null)
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -624,10 +652,10 @@ class MainActivity : FlutterActivity() {
             Imgproc.resize(bgMat, bgMat, currMat.size())
         }
 
-        // Build binary person mask from confidence array with 0.40 threshold
+        // Build binary person mask from confidence array with 0.25 threshold
         val maskByteArray = ByteArray(maskWidth * maskHeight)
         for (i in maskConfidences.indices) {
-            maskByteArray[i] = if (maskConfidences[i] > 0.40) 255.toByte() else 0.toByte()
+            maskByteArray[i] = if (maskConfidences[i] > 0.25) 255.toByte() else 0.toByte()
         }
 
         val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)
@@ -727,5 +755,52 @@ class MainActivity : FlutterActivity() {
         val bl = pts[diffs.indexOf(diffs.maxOrNull()!!)]
 
         return arrayOf(tl, tr, br, bl)
+    }
+
+    private fun preprocessForOcrNative(srcPath: String, dstPath: String): Boolean {
+        val bitmap = BitmapFactory.decodeFile(srcPath) ?: return false
+        val srcMat = Mat()
+        Utils.bitmapToMat(bitmap, srcMat)
+        bitmap.recycle()
+
+        val gray = Mat()
+        Imgproc.cvtColor(srcMat, gray, Imgproc.COLOR_BGR2GRAY)
+        srcMat.release()
+
+        // 1. CLAHE on grayscale to balance lighting gradients across the whiteboard
+        val clahe = Imgproc.createCLAHE(3.0, Size(8.0, 8.0))
+        val claheGray = Mat()
+        clahe.apply(gray, claheGray)
+        gray.release()
+
+        // 2. Adaptive thresholding to yield pure dark text on crisp white background
+        val binary = Mat()
+        Imgproc.adaptiveThreshold(
+            claheGray,
+            binary,
+            255.0,
+            Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,
+            Imgproc.THRESH_BINARY,
+            21,
+            10.0
+        )
+        claheGray.release()
+
+        // 3. Light median blur to remove single-pixel speckle noise
+        val cleanBinary = Mat()
+        Imgproc.medianBlur(binary, cleanBinary, 3)
+        binary.release()
+
+        val outBmp = Bitmap.createBitmap(cleanBinary.cols(), cleanBinary.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(cleanBinary, outBmp)
+        cleanBinary.release()
+
+        val file = File(dstPath)
+        file.parentFile?.mkdirs()
+        FileOutputStream(file).use { out ->
+            outBmp.compress(Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        outBmp.recycle()
+        return true
     }
 }
