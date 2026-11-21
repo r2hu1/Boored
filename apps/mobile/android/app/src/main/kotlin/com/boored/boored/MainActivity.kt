@@ -293,15 +293,18 @@ class MainActivity : FlutterActivity() {
         val currentPath = call.argument<String>("currentPath")
         val cleanBackgroundPath = call.argument<String>("cleanBackgroundPath")
         val dstPath = call.argument<String>("dstPath")
-        val maskConfidences = call.argument<List<Double>>("maskConfidences")
+        val rawConfidences = call.argument<List<*>>("maskConfidences")
         val maskWidth = call.argument<Int>("maskWidth")
         val maskHeight = call.argument<Int>("maskHeight")
 
         if (currentPath == null || cleanBackgroundPath == null || dstPath == null ||
-            maskConfidences == null || maskWidth == null || maskHeight == null) {
+            rawConfidences == null || maskWidth == null || maskHeight == null) {
             result.error("INVALID_ARGUMENT", "All composite arguments are required", null)
             return
         }
+
+        // Safely cast every element — Flutter MethodChannel may send mixed number types
+        val maskConfidences = rawConfidences.map { (it as Number).toDouble() }
 
         scope.launch {
             try {
@@ -725,8 +728,8 @@ class MainActivity : FlutterActivity() {
 
         // Build binary person mask from confidence array with 0.5 threshold
         val maskByteArray = ByteArray(maskWidth * maskHeight)
-        for (i in maskConfidences.indices) {
-            maskByteArray[i] = if (maskConfidences[i] > 0.5) 255.toByte() else 0.toByte()
+        for (i in 0 until minOf(maskConfidences.size, maskByteArray.size)) {
+            maskByteArray[i] = if ((maskConfidences[i] as Number).toDouble() > 0.5) 255.toByte() else 0.toByte()
         }
 
         val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)

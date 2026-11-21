@@ -161,17 +161,23 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     setState(() => _isFinalizing = true);
     try {
       final db = ref.read(databaseProvider);
+      final segmenter = MLKitSegmentationEngine();
       final finalizer = SessionFinalizer(
         notesDao: NotesDao(db),
         keyframesDao: KeyframesDao(db),
         recognitionEngine: MLKitRecognitionEngine(),
         lecturerRemovalProcessor: LecturerRemovalProcessor(
-          segmenter: MLKitSegmentationEngine(),
+          segmenter: segmenter,
           openCVService: OpenCVService(),
         ),
       );
 
-      await finalizer.finalizeNote(widget.noteId, removeLecturer: removeLecturer);
+      try {
+        await finalizer.finalizeNote(widget.noteId, removeLecturer: removeLecturer);
+      } finally {
+        await segmenter.dispose();
+      }
+
       await _checkDigitalPdfExists();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

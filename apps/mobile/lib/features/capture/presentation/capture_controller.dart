@@ -5,6 +5,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../data/capture_service.dart';
 import '../data/opencv_service.dart';
 import '../data/keyframe_policy.dart';
+import '../data/mlkit_segmentation_engine.dart';
+import '../domain/segmentation_engine.dart';
 import 'widgets/board_overlay.dart';
 import '../../notes/data/notes_repository.dart';
 
@@ -62,6 +64,7 @@ class CaptureNotifier extends Notifier<CaptureState> {
   CaptureService? _service;
   late final OpenCVService _openCVService;
   late final KeyframePolicyManager _policyManager;
+  SegmentationEngine? _segmentationEngine;
   Timer? _elapsedTimer;
 
   @override
@@ -72,6 +75,7 @@ class CaptureNotifier extends Notifier<CaptureState> {
     ref.onDispose(() {
       _elapsedTimer?.cancel();
       _service?.dispose();
+      _segmentationEngine?.dispose();
       WakelockPlus.disable();
     });
     return const CaptureState();
@@ -149,7 +153,35 @@ class CaptureNotifier extends Notifier<CaptureState> {
           srcPath: activePath,
           dstPath: enhancedPath,
         );
-        final finalFramePath = enhanced ?? activePath;
+        String finalFramePath = enhanced ?? activePath;
+
+        // 2b. Real-time professor removal (if enabled)
+        if (state.removeLecturer) {
+          try {
+            _segmentationEngine ??= MLKitSegmentationEngine();
+            final mask = await _segmentationEngine!.processImage(finalFramePath);
+            if (mask != null && mask.hasPerson) {
+              // Use the previous clean frame as background reference
+              final refFrame = _policyManager.previousFramePath;
+              if (refFrame != null && refFrame != finalFramePath) {
+                final deoccludedPath = finalFramePath.replaceAll('.jpg', '_deoccluded.jpg');
+                final composited = await _openCVService.compositeUnoccluded(
+                  currentPath: finalFramePath,
+                  cleanBackgroundPath: refFrame,
+                  dstPath: deoccludedPath,
+                  maskConfidences: mask.confidences,
+                  maskWidth: mask.width,
+                  maskHeight: mask.height,
+                );
+                if (composited != null) {
+                  finalFramePath = deoccludedPath;
+                }
+              }
+            }
+          } catch (_) {
+            // Segmentation failure is non-fatal; keep the enhanced frame
+          }
+        }
 
         // 3. Change detection with previous frame
         String eventType = 'NONE';
@@ -226,6 +258,8 @@ class CaptureNotifier extends Notifier<CaptureState> {
     _elapsedTimer?.cancel();
     await _service?.dispose();
     _service = null;
+    await _segmentationEngine?.dispose();
+    _segmentationEngine = null;
     await WakelockPlus.disable();
     state = const CaptureState();
   }
