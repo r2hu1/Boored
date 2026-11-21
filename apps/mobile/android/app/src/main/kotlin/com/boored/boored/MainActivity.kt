@@ -652,10 +652,10 @@ class MainActivity : FlutterActivity() {
             Imgproc.resize(bgMat, bgMat, currMat.size())
         }
 
-        // Build binary person mask from confidence array with 0.25 threshold
+        // Build binary person mask from confidence array with 0.5 threshold
         val maskByteArray = ByteArray(maskWidth * maskHeight)
         for (i in maskConfidences.indices) {
-            maskByteArray[i] = if (maskConfidences[i] > 0.25) 255.toByte() else 0.toByte()
+            maskByteArray[i] = if (maskConfidences[i] > 0.5) 255.toByte() else 0.toByte()
         }
 
         val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)

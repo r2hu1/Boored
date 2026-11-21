@@ -37,7 +37,7 @@ class LecturerRemovalProcessor {
       for (final path in keyframePaths) {
         final mask = masks[path];
         if (mask != null) {
-          final count = mask.confidences.where((c) => c > 0.25).length;
+          final count = mask.confidences.where((c) => c > 0.5).length;
           if (count < minPersonPixels) {
             minPersonPixels = count;
             bestPath = path;
