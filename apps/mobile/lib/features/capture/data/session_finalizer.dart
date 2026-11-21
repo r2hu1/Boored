@@ -120,7 +120,9 @@ class SessionFinalizer {
     return pdfPath;
   }
 
-  /// Generates a clean digital document PDF from extracted OCR text across all keyframes.
+  /// Generates a canvas-style digital PDF that embeds the original whiteboard
+  /// image (preserving drawings, diagrams, arrows) with any extracted OCR text
+  /// placed below each image for searchability and copy-paste.
   Future<String?> generateDigitalPdf(String noteId) async {
     final note = await notesDao.getNoteById(noteId);
     final keyframes = await keyframesDao.getKeyframesForNote(noteId);
@@ -135,20 +137,27 @@ class SessionFinalizer {
     final digitalPdf = pw.Document();
     final title = note?.title ?? 'Digital Notes';
 
-    // Filter frames that have non-empty text, or use unique frames
-    final framesWithContent = keyframes.where((k) => (k.extractedText ?? '').trim().isNotEmpty).toList();
-    final pagesToRender = framesWithContent.isNotEmpty ? framesWithContent : keyframes;
-
-    for (int i = 0; i < pagesToRender.length; i++) {
-      final kf = pagesToRender[i];
+    for (int i = 0; i < keyframes.length; i++) {
+      final kf = keyframes[i];
       final textContent = (kf.extractedText ?? '').trim();
+      final imageFile = File(kf.imagePath);
+      final hasImage = imageFile.existsSync();
+
+      // Load image bytes if the file exists
+      pw.MemoryImage? image;
+      if (hasImage) {
+        try {
+          final bytes = await imageFile.readAsBytes();
+          image = pw.MemoryImage(bytes);
+        } catch (_) {}
+      }
 
       digitalPdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 36),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 28),
           header: (pw.Context ctx) => pw.Container(
-            padding: const pw.EdgeInsets.only(bottom: 12),
+            padding: const pw.EdgeInsets.only(bottom: 10),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
                 bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.8),
@@ -166,7 +175,7 @@ class SessionFinalizer {
                   ),
                 ),
                 pw.Text(
-                  'Section ${i + 1} of ${pagesToRender.length}',
+                  'Page ${i + 1} of ${keyframes.length}',
                   style: const pw.TextStyle(
                     fontSize: 9,
                     color: PdfColors.grey500,
@@ -176,7 +185,7 @@ class SessionFinalizer {
             ),
           ),
           footer: (pw.Context ctx) => pw.Container(
-            padding: const pw.EdgeInsets.only(top: 10),
+            padding: const pw.EdgeInsets.only(top: 8),
             decoration: const pw.BoxDecoration(
               border: pw.Border(
                 top: pw.BorderSide(color: PdfColors.grey300, width: 0.8),
@@ -198,8 +207,9 @@ class SessionFinalizer {
           ),
           build: (pw.Context ctx) {
             return [
+              // Section label
               pw.Container(
-                margin: const pw.EdgeInsets.only(top: 8, bottom: 16),
+                margin: const pw.EdgeInsets.only(top: 4, bottom: 12),
                 child: pw.Row(
                   children: [
                     pw.Container(
@@ -214,7 +224,7 @@ class SessionFinalizer {
                     pw.Text(
                       'Page ${i + 1}',
                       style: pw.TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColors.blueGrey900,
                       ),
@@ -222,35 +232,72 @@ class SessionFinalizer {
                   ],
                 ),
               ),
-              if (textContent.isNotEmpty)
+
+              // Canvas: embedded whiteboard image (preserves drawings, diagrams, etc.)
+              if (image != null)
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(14),
+                  margin: const pw.EdgeInsets.only(bottom: 12),
                   decoration: pw.BoxDecoration(
-                    color: PdfColors.grey50,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-                    border: pw.Border.all(color: PdfColors.grey200, width: 0.8),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
-                  child: pw.Paragraph(
-                    text: textContent,
-                    style: const pw.TextStyle(
-                      fontSize: 11,
-                      lineSpacing: 3.5,
-                      color: PdfColors.black,
-                    ),
+                  child: pw.ClipRRect(
+                    horizontalRadius: 4,
+                    verticalRadius: 4,
+                    child: pw.Image(image, fit: pw.BoxFit.fitWidth),
                   ),
                 )
               else
                 pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  child: pw.Text(
-                    '[No text detected on this board]',
-                    style: const pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.grey500,
-                      fontStyle: pw.FontStyle.italic,
+                  height: 80,
+                  margin: const pw.EdgeInsets.only(bottom: 12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      '[Image not available]',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey500,
+                        fontStyle: pw.FontStyle.italic,
+                      ),
                     ),
                   ),
                 ),
+
+              // Extracted text below the image (for search & copy-paste)
+              if (textContent.isNotEmpty) ...[
+                pw.Container(
+                  margin: const pw.EdgeInsets.only(bottom: 4),
+                  child: pw.Text(
+                    'Extracted Text',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey50,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    border: pw.Border.all(color: PdfColors.grey200, width: 0.6),
+                  ),
+                  child: pw.Paragraph(
+                    text: textContent,
+                    style: const pw.TextStyle(
+                      fontSize: 10,
+                      lineSpacing: 3.0,
+                      color: PdfColors.black,
+                    ),
+                  ),
+                ),
+              ],
             ];
           },
         ),

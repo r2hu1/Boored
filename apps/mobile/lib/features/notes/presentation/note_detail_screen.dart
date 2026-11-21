@@ -338,9 +338,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                     value: 'extract_ocr',
                     child: Row(
                       children: [
-                        Icon(Icons.document_scanner_outlined, size: 18),
+                        Icon(Icons.auto_awesome_outlined, size: 18),
                         SizedBox(width: 10),
-                        Text('Extract text (OCR)'),
+                        Text('Generate Digital Copy'),
                       ],
                     ),
                   ),
