@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../auth/presentation/auth_controller.dart';
 import '../../notes/presentation/notes_controller.dart';
@@ -179,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: _buildBody(context, notesState, theme),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateDialog(context),
+        onPressed: () => _showNewNoteOptions(context),
         child: const Icon(Icons.add),
       ),
     );
@@ -284,7 +285,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _showCreateDialog(BuildContext context) async {
+  void _showNewNoteOptions(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'New Note',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.videocam_rounded,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                title: const Text('Record Live'),
+                subtitle: const Text('Capture whiteboard in real-time'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _createAndCaptureLive(context);
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                leading: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.upload_file_rounded,
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                ),
+                title: const Text('Upload Video'),
+                subtitle: const Text('Import a prerecorded lecture video'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _createAndImportVideo(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createAndCaptureLive(BuildContext context) async {
     final title = await showDialog<String>(
       context: context,
       builder: (_) => const CreateNoteDialog(),
@@ -299,6 +383,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (context.mounted) {
       context.push(
         '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
+      );
+    }
+  }
+
+  Future<void> _createAndImportVideo(BuildContext context) async {
+    // 1. Pick video first so we don't create a note if user cancels
+    final picker = ImagePicker();
+    final video = await picker.pickVideo(source: ImageSource.gallery);
+    if (!mounted || video == null) return;
+
+    // 2. Ask for title
+    final title = await showDialog<String>(
+      context: context,
+      builder: (_) => const CreateNoteDialog(),
+    );
+    if (!mounted || title == null || title.isEmpty) return;
+
+    // 3. Create note
+    final note = await ref
+        .read(notesNotifierProvider.notifier)
+        .createNote(title);
+    if (!mounted || note == null) return;
+
+    // 4. Navigate to import processing screen
+    if (context.mounted) {
+      context.push(
+        '/import/${note.id}'
+        '?title=${Uri.encodeComponent(note.title)}'
+        '&video=${Uri.encodeComponent(video.path)}',
       );
     }
   }

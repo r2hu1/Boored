@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.media.MediaMetadataRetriever
 import android.util.Log
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -47,6 +48,7 @@ class MainActivity : FlutterActivity() {
                 "compositeUnoccluded" -> handleComposite(call, result)
                 "preprocessForOcr" -> handlePreprocessOcr(call, result)
                 "openPdf" -> handleOpenPdf(call, result)
+                "extractVideoFrames" -> handleExtractVideoFrames(call, result)
                 else -> result.notImplemented()
             }
         }
@@ -215,6 +217,75 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             Log.e("BooredOpenPdf", "Failed to open PDF", e)
             result.error("OPEN_FAILED", e.message, null)
+        }
+    }
+
+    private fun handleExtractVideoFrames(call: MethodCall, result: MethodChannel.Result) {
+        val videoPath = call.argument<String>("videoPath")
+        val outputDir = call.argument<String>("outputDir")
+        val intervalMs = call.argument<Int>("intervalMs") ?: 5000
+
+        if (videoPath == null || outputDir == null) {
+            result.error("INVALID_ARGUMENT", "videoPath and outputDir are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val data = extractVideoFramesNative(videoPath, outputDir, intervalMs)
+                withContext(Dispatchers.Main) {
+                    result.success(data)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("EXTRACT_FAILED", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun extractVideoFramesNative(
+        videoPath: String,
+        outputDir: String,
+        intervalMs: Int
+    ): Map<String, Any> {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(videoPath)
+
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val durationMs = durationStr?.toLongOrNull() ?: 0L
+
+            val outDirFile = File(outputDir)
+            if (!outDirFile.exists()) outDirFile.mkdirs()
+
+            val framePaths = mutableListOf<String>()
+            var timeUs: Long = 0
+            val intervalUs = intervalMs.toLong() * 1000L
+            val durationUs = durationMs * 1000L
+            var frameIndex = 0
+
+            while (timeUs <= durationUs) {
+                val bitmap = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                if (bitmap != null) {
+                    val frameName = "frame_${frameIndex.toString().padStart(5, '0')}.jpg"
+                    val framePath = File(outputDir, frameName).absolutePath
+                    FileOutputStream(File(framePath)).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                    }
+                    bitmap.recycle()
+                    framePaths.add(framePath)
+                    frameIndex++
+                }
+                timeUs += intervalUs
+            }
+
+            return mapOf(
+                "framePaths" to framePaths,
+                "durationMs" to durationMs.toInt()
+            )
+        } finally {
+            retriever.release()
         }
     }
 

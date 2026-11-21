@@ -6,6 +6,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notes/presentation/note_detail_screen.dart';
 import '../../features/capture/presentation/capture_screen.dart';
+import '../../features/capture/presentation/video_import_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 // Bridges Riverpod auth state changes to GoRouter's redirect re-evaluation
@@ -51,6 +52,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           final noteId = state.pathParameters['id']!;
           final title = state.uri.queryParameters['title'] ?? 'Capture';
           return CaptureScreen(noteId: noteId, noteTitle: title);
+        },
+      ),
+      GoRoute(
+        path: '/import/:id',
+        builder: (context, state) {
+          final noteId = state.pathParameters['id']!;
+          final title = state.uri.queryParameters['title'] ?? 'Import';
+          final videoPath = state.uri.queryParameters['video'] ?? '';
+          return VideoImportScreen(
+            noteId: noteId,
+            noteTitle: title,
+            videoPath: videoPath,
+          );
         },
       ),
       GoRoute(
