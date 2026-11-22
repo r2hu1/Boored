@@ -7,6 +7,7 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/notes/presentation/note_detail_screen.dart';
 import '../../features/capture/presentation/capture_screen.dart';
 import '../../features/capture/presentation/video_import_screen.dart';
+import '../../features/folders/presentation/folder_detail_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 // Bridges Riverpod auth state changes to GoRouter's redirect re-evaluation
@@ -66,6 +67,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             videoPath: videoPath,
           );
         },
+      ),
+      GoRoute(
+        path: '/folders/:id',
+        builder: (context, state) => FolderDetailScreen(
+          folderId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/settings',

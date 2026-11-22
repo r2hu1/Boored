@@ -14,6 +14,26 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
         .watch();
   }
 
+  Stream<List<Note>> watchNotesInFolder(String userId, String folderId) {
+    return (select(notes)
+          ..where((n) =>
+              n.userId.equals(userId) &
+              n.folderId.equals(folderId) &
+              n.deletedAt.isNull())
+          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
+        .watch();
+  }
+
+  Stream<List<Note>> watchRootNotes(String userId) {
+    return (select(notes)
+          ..where((n) =>
+              n.userId.equals(userId) &
+              n.folderId.isNull() &
+              n.deletedAt.isNull())
+          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
+        .watch();
+  }
+
   Stream<Note?> watchNote(String noteId) {
     return (select(notes)..where((n) => n.id.equals(noteId)))
         .watchSingleOrNull();
@@ -33,6 +53,7 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   Future<Note> createNote({
     required String userId,
     required String title,
+    String? folderId,
   }) async {
     final now = DateTime.now();
     final id = generateId();
@@ -40,6 +61,7 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
       id: id,
       userId: userId,
       title: title,
+      folderId: Value(folderId),
       createdAt: Value(now),
       updatedAt: Value(now),
     );
@@ -51,6 +73,7 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
     String noteId, {
     String? title,
     String? status,
+    String? folderId,
     int? durationMs,
     DateTime? startedAt,
   }) async {
@@ -60,6 +83,7 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
       NotesCompanion(
         title: title != null ? Value(title) : const Value.absent(),
         status: status != null ? Value(status) : const Value.absent(),
+        folderId: folderId != null ? Value(folderId) : const Value.absent(),
         durationMs:
             durationMs != null ? Value(durationMs) : const Value.absent(),
         startedAt:

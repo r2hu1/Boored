@@ -73,12 +73,12 @@ class NotesNotifier extends Notifier<NotesState> {
     return const NotesState();
   }
 
-  Future<Note?> createNote(String title) async {
+  Future<Note?> createNote(String title, {String? folderId}) async {
     final userId = ref.read(authNotifierProvider).user?.id;
     if (userId == null) return null;
     try {
       final repo = ref.read(notesRepositoryProvider);
-      return await repo.createNote(userId, title);
+      return await repo.createNote(userId, title, folderId: folderId);
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
       return null;

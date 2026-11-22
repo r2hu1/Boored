@@ -7,6 +7,7 @@ part 'app_database.g.dart';
 class Notes extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text()();
+  TextColumn get folderId => text().nullable().references(Folders, #id, onDelete: KeyAction.setNull)();
   TextColumn get title => text().withLength(min: 1, max: 255)();
   TextColumn get status => text().withDefault(const Constant('recording'))();
   IntColumn get durationMs => integer().nullable()();
@@ -18,6 +19,21 @@ class Notes extends Table {
   DateTimeColumn get deletedAt => dateTime().nullable()();
   IntColumn get version => integer().withDefault(const Constant(1))();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Folders extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get name => text().withLength(min: 1, max: 255)();
+  TextColumn get icon => text().withDefault(const Constant('📁'))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -38,19 +54,23 @@ class Keyframes extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Notes, Keyframes])
+@DriftDatabase(tables: [Notes, Keyframes, Folders])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.createTable(keyframes);
+          }
+          if (from < 3) {
+            await m.createTable(folders);
+            await m.addColumn(notes, notes.folderId);
           }
         },
       );
