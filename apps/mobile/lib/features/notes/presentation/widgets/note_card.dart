@@ -42,7 +42,7 @@ class NoteCard extends ConsumerWidget {
     final (statusIcon, statusLabel, isHighlight) = switch (note.status) {
       'recording' => (Icons.videocam_rounded, 'Recording', true),
       'processing' => (Icons.sync_rounded, 'Processing', true),
-      'ready' => (Icons.check_rounded, 'Ready', false),
+      'ready' => (Icons.file_open, 'Ready', false),
       'failed' => (Icons.error_outline_rounded, 'Failed', true),
       _ => (Icons.description_rounded, note.status, false),
     };
@@ -110,7 +110,9 @@ class NoteCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          note.title.trim().isEmpty ? 'Untitled note' : note.title,
+                          note.title.trim().isEmpty
+                              ? 'Untitled note'
+                              : note.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
@@ -126,7 +128,8 @@ class NoteCard extends ConsumerWidget {
                             if (folderAsync != null)
                               folderAsync.when(
                                 data: (folder) {
-                                  if (folder == null) return const SizedBox.shrink();
+                                  if (folder == null)
+                                    return const SizedBox.shrink();
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 8),
                                     child: Container(
@@ -149,11 +152,13 @@ class NoteCard extends ConsumerWidget {
                                           const SizedBox(width: 4),
                                           Text(
                                             folder.name,
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: colors.onSurfaceVariant,
-                                            ),
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      colors.onSurfaceVariant,
+                                                ),
                                           ),
                                         ],
                                       ),
@@ -174,13 +179,18 @@ class NoteCard extends ConsumerWidget {
                             ),
 
                             // Duration (if available)
-                            if (note.durationMs != null && note.durationMs! > 0) ...[
+                            if (note.durationMs != null &&
+                                note.durationMs! > 0) ...[
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 child: Text(
                                   '•',
                                   style: TextStyle(
-                                    color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                                    color: colors.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -203,11 +213,15 @@ class NoteCard extends ConsumerWidget {
                             // Active status badge (recording/processing)
                             if (isHighlight) ...[
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 child: Text(
                                   '•',
                                   style: TextStyle(
-                                    color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                                    color: colors.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -215,7 +229,9 @@ class NoteCard extends ConsumerWidget {
                               Text(
                                 statusLabel,
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: note.status == 'recording' || note.status == 'failed'
+                                  color:
+                                      note.status == 'recording' ||
+                                          note.status == 'failed'
                                       ? colors.error
                                       : colors.primary,
                                   fontSize: 11,
@@ -259,9 +275,16 @@ class NoteCard extends ConsumerWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 16, color: colors.error),
+                            Icon(
+                              Icons.delete_outline,
+                              size: 16,
+                              color: colors.error,
+                            ),
                             const SizedBox(width: 10),
-                            Text('Delete', style: TextStyle(color: colors.error)),
+                            Text(
+                              'Delete',
+                              style: TextStyle(color: colors.error),
+                            ),
                           ],
                         ),
                       ),

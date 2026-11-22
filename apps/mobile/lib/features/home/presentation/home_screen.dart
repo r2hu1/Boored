@@ -263,8 +263,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       child: Text(
                         'Folders',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -282,7 +282,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             final folder = foldersState.folders[index];
                             return FolderCard(
                               folder: folder,
-                              onTap: () => context.push('/folders/${folder.id}'),
+                              onTap: () =>
+                                  context.push('/folders/${folder.id}'),
                               onEdit: () => _editFolder(context, folder),
                               onDelete: () => _deleteFolder(context, folder),
                             );
@@ -290,17 +291,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                     ),
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: 16),
-                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
                   ],
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: Text(
                         'All Notes',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -311,9 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 _buildNotesList(context, notesState, theme, colors),
 
                 // Bottom padding for FAB
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 88),
-                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 88)),
               ],
             ),
             if (_isFabOpen)
@@ -549,73 +546,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final note = notesState.notes[index];
-          return NoteCard(
-            note: note,
-            onTap: () {
-              context.push('/notes/${note.id}');
-            },
-            onRename: () async {
-              final newTitle = await showRenameNoteSheet(
-                context,
-                currentTitle: note.title,
-              );
-              if (newTitle != null && newTitle != note.title) {
-                ref
-                    .read(notesNotifierProvider.notifier)
-                    .updateNoteTitle(note.id, newTitle);
-              }
-            },
-            onDelete: () async {
-              final confirmed = await showDeleteNoteSheet(
-                context,
-                noteTitle: note.title,
-              );
-              if (confirmed == true) {
-                ref.read(notesNotifierProvider.notifier).deleteNote(note.id);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('"${note.title}" deleted'),
-                    action: SnackBarAction(
-                      label: 'Undo',
-                      onPressed: () {
-                        ref
-                            .read(notesNotifierProvider.notifier)
-                            .restoreNote(note.id);
-                      },
-                    ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final note = notesState.notes[index];
+        return NoteCard(
+          note: note,
+          onTap: () {
+            context.push('/notes/${note.id}');
+          },
+          onRename: () async {
+            final newTitle = await showRenameNoteSheet(
+              context,
+              currentTitle: note.title,
+            );
+            if (newTitle != null && newTitle != note.title) {
+              ref
+                  .read(notesNotifierProvider.notifier)
+                  .updateNoteTitle(note.id, newTitle);
+            }
+          },
+          onDelete: () async {
+            final confirmed = await showDeleteNoteSheet(
+              context,
+              noteTitle: note.title,
+            );
+            if (confirmed == true) {
+              ref.read(notesNotifierProvider.notifier).deleteNote(note.id);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('"${note.title}" deleted'),
+                  action: SnackBarAction(
+                    label: 'Undo',
+                    onPressed: () {
+                      ref
+                          .read(notesNotifierProvider.notifier)
+                          .restoreNote(note.id);
+                    },
                   ),
-                );
-              }
-            },
-          );
-        },
-        childCount: notesState.notes.length,
-      ),
+                ),
+              );
+            }
+          },
+        );
+      }, childCount: notesState.notes.length),
     );
   }
 
   Future<void> _createFolder(BuildContext context) async {
     final name = await showCreateFolderSheet(context);
     if (!mounted || name == null) return;
-    await ref.read(foldersNotifierProvider.notifier).createFolder(
-          name: name,
-        );
+    await ref.read(foldersNotifierProvider.notifier).createFolder(name: name);
   }
 
   Future<void> _editFolder(BuildContext context, dynamic folder) async {
-    final name = await showEditFolderSheet(
-      context,
-      initialName: folder.name,
-    );
+    final name = await showEditFolderSheet(context, initialName: folder.name);
     if (!mounted || name == null) return;
-    await ref.read(foldersNotifierProvider.notifier).updateFolder(
-          folder.id,
-          name: name,
-        );
+    await ref
+        .read(foldersNotifierProvider.notifier)
+        .updateFolder(folder.id, name: name);
   }
 
   Future<void> _deleteFolder(BuildContext context, dynamic folder) async {
@@ -623,7 +611,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Folder?'),
-        content: Text('Delete "${folder.name}"? Notes inside will remain in All Notes.'),
+        content: Text(
+          'Delete "${folder.name}"? Notes inside will remain in All Notes.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
