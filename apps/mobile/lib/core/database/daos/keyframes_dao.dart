@@ -67,4 +67,23 @@ class KeyframesDao extends DatabaseAccessor<AppDatabase> with _$KeyframesDaoMixi
       ),
     );
   }
+
+  Future<void> deleteKeyframe(String id) {
+    return (delete(keyframes)..where((k) => k.id.equals(id))).go();
+  }
+
+  Future<void> deleteKeyframes(List<String> ids) {
+    return (delete(keyframes)..where((k) => k.id.isIn(ids))).go();
+  }
+
+  Future<void> reindexKeyframes(String noteId) async {
+    final remaining = await getKeyframesForNote(noteId);
+    for (int i = 0; i < remaining.length; i++) {
+      if (remaining[i].index != i) {
+        await (update(keyframes)..where((k) => k.id.equals(remaining[i].id))).write(
+          KeyframesCompanion(index: Value(i)),
+        );
+      }
+    }
+  }
 }

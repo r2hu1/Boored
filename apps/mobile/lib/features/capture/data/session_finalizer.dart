@@ -356,4 +356,116 @@ class SessionFinalizer {
     await digitalPdfFile.writeAsBytes(await digitalPdf.save());
     return digitalPdfPath;
   }
+
+  /// Rebuilds document.pdf, clean.pdf (if exists), digital.pdf (if exists),
+  /// and timeline.json immediately after keyframe deletion/reordering.
+  Future<void> regeneratePdfsAfterDeletion(String noteId) async {
+    final remainingKeyframes = await keyframesDao.getKeyframesForNote(noteId);
+    final appDir = await getApplicationDocumentsDirectory();
+    final noteDir = Directory(p.join(appDir.path, 'captures', noteId));
+    if (!noteDir.existsSync()) {
+      noteDir.createSync(recursive: true);
+    }
+
+    // 1. Rebuild document.pdf
+    final pdf = pw.Document();
+    for (final kf in remainingKeyframes) {
+      if (File(kf.imagePath).existsSync()) {
+        final imageBytes = await File(kf.imagePath).readAsBytes();
+        final image = pw.MemoryImage(imageBytes);
+
+        bool isLandscape = true;
+        if (image.width != null && image.height != null) {
+          final isRotated = image.orientation == PdfImageOrientation.topRight ||
+              image.orientation == PdfImageOrientation.bottomLeft ||
+              image.orientation == PdfImageOrientation.leftTop ||
+              image.orientation == PdfImageOrientation.rightBottom;
+          final effectiveWidth = isRotated ? image.height! : image.width!;
+          final effectiveHeight = isRotated ? image.width! : image.height!;
+          isLandscape = effectiveWidth >= effectiveHeight;
+        }
+
+        final pageFormat = isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pageFormat,
+            margin: pw.EdgeInsets.zero,
+            build: (pw.Context ctx) {
+              return pw.FullPage(
+                ignoreMargins: true,
+                child: pw.Center(
+                  child: pw.Image(image, fit: pw.BoxFit.contain),
+                ),
+              );
+            },
+          ),
+        );
+      }
+    }
+    final docPdfFile = File(p.join(noteDir.path, 'document.pdf'));
+    await docPdfFile.writeAsBytes(await pdf.save());
+
+    // 2. Rebuild clean.pdf if it exists
+    final cleanPdfFile = File(p.join(noteDir.path, 'clean.pdf'));
+    if (cleanPdfFile.existsSync()) {
+      final cleanPdf = pw.Document();
+      for (final kf in remainingKeyframes) {
+        if (File(kf.imagePath).existsSync()) {
+          final imageBytes = await File(kf.imagePath).readAsBytes();
+          final image = pw.MemoryImage(imageBytes);
+
+          bool isLandscape = true;
+          if (image.width != null && image.height != null) {
+            final isRotated = image.orientation == PdfImageOrientation.topRight ||
+                image.orientation == PdfImageOrientation.bottomLeft ||
+                image.orientation == PdfImageOrientation.leftTop ||
+                image.orientation == PdfImageOrientation.rightBottom;
+            final effectiveWidth = isRotated ? image.height! : image.width!;
+            final effectiveHeight = isRotated ? image.width! : image.height!;
+            isLandscape = effectiveWidth >= effectiveHeight;
+          }
+
+          final pageFormat = isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+          cleanPdf.addPage(
+            pw.Page(
+              pageFormat: pageFormat,
+              margin: pw.EdgeInsets.zero,
+              build: (pw.Context ctx) {
+                return pw.FullPage(
+                  ignoreMargins: true,
+                  child: pw.Center(
+                    child: pw.Image(image, fit: pw.BoxFit.contain),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+      }
+      await cleanPdfFile.writeAsBytes(await cleanPdf.save());
+    }
+
+    // 3. Rebuild digital.pdf if it exists
+    final digitalPdfFile = File(p.join(noteDir.path, 'digital.pdf'));
+    if (digitalPdfFile.existsSync()) {
+      await generateDigitalPdf(noteId);
+    }
+
+    // 4. Update timeline.json
+    final timelineFile = File(p.join(noteDir.path, 'timeline.json'));
+    final timelineEvents = remainingKeyframes.map((kf) => {
+      'index': kf.index,
+      'timestampMs': kf.timestampMs,
+      'eventType': kf.eventType,
+      'imagePath': kf.imagePath,
+      'extractedText': kf.extractedText,
+    }).toList();
+    await timelineFile.writeAsString(
+      jsonEncode({
+        'noteId': noteId,
+        'totalKeyframes': timelineEvents.length,
+        'keyframes': timelineEvents,
+      }),
+    );
+  }
 }

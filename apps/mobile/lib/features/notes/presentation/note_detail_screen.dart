@@ -19,6 +19,7 @@ import '../../capture/data/mlkit_segmentation_engine.dart';
 import '../../capture/data/opencv_service.dart';
 import '../../capture/data/session_finalizer.dart';
 import 'notes_controller.dart';
+import 'edit_pages_screen.dart';
 import 'widgets/create_note_dialog.dart' show showRenameNoteSheet, showDeleteNoteSheet;
 
 final _noteProvider = StreamProvider.autoDispose.family<Note?, String>((ref, noteId) {
@@ -455,6 +456,25 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   context.push(
                     '/capture/${note.id}?title=${Uri.encodeComponent(note.title)}',
                   );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit Pages',
+                onPressed: () async {
+                  final changed = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => EditPagesScreen(
+                        noteId: widget.noteId,
+                        noteTitle: note.title,
+                      ),
+                    ),
+                  );
+                  if (changed == true && mounted) {
+                    ref.invalidate(_keyframesProvider(widget.noteId));
+                    await _checkExtraPdfsExist();
+                    setState(() => _pdfReloadTrigger++);
+                  }
                 },
               ),
               PopupMenuButton<String>(

@@ -285,38 +285,6 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                         ),
                         onPressed: _isAutoDetecting ? null : _autoDetectCorners,
                       ),
-                    const SizedBox(width: 4),
-                    IconButton.filledTonal(
-                      icon: Icon(
-                        captureState.removeLecturer
-                            ? Icons.person_off_rounded
-                            : Icons.person_rounded,
-                        color: captureState.removeLecturer
-                            ? const Color(0xFF60A5FA)
-                            : Colors.white60,
-                        size: 20,
-                      ),
-                      tooltip: captureState.removeLecturer
-                          ? 'Remove Professor: Enabled'
-                          : 'Remove Professor: Disabled',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withValues(alpha: 0.45),
-                      ),
-                      onPressed: () {
-                        ref.read(captureNotifierProvider.notifier).toggleRemoveLecturer();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              !captureState.removeLecturer
-                                  ? 'Professor removal enabled'
-                                  : 'Professor removal disabled',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),
