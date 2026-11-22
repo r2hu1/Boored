@@ -3,7 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../../core/utils/relative_time.dart';
+import '../../../capture/data/keyframe_policy.dart';
 import '../../../folders/presentation/folders_controller.dart';
+
+final notePreviewTextProvider =
+    StreamProvider.family<String?, String>((ref, noteId) {
+  final dao = ref.watch(keyframesDaoProvider);
+  return dao.watchKeyframesForNote(noteId).map((keyframes) {
+    for (final kf in keyframes) {
+      final text = kf.extractedText?.trim();
+      if (text != null && text.isNotEmpty) {
+        return text.replaceAll('\n', ' ');
+      }
+    }
+    return null;
+  });
+});
 
 class NoteCard extends ConsumerWidget {
   final Note note;
@@ -29,6 +44,64 @@ class NoteCard extends ConsumerWidget {
     return '${s}s';
   }
 
+  void _showNoteActions(BuildContext context, ColorScheme colors) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(
+                  note.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (onRename != null)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Rename note'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    onRename?.call();
+                  },
+                ),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: colors.error),
+                title: Text('Delete note', style: TextStyle(color: colors.error)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onDelete();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -39,6 +112,9 @@ class NoteCard extends ConsumerWidget {
         ? ref.watch(folderByIdProvider(note.folderId!))
         : null;
 
+    final previewTextAsync = ref.watch(notePreviewTextProvider(note.id));
+    final previewText = previewTextAsync.asData?.value;
+
     final (statusIcon, statusLabel, isHighlight) = switch (note.status) {
       'recording' => (Icons.videocam_rounded, 'Recording', true),
       'processing' => (Icons.sync_rounded, 'Processing', true),
@@ -47,6 +123,29 @@ class NoteCard extends ConsumerWidget {
       _ => (Icons.description_rounded, note.status, false),
     };
 
+    final String subtitleText;
+    if (isHighlight) {
+      subtitleText = switch (note.status) {
+        'recording' =>
+          'Recording in progress • ${_formatDuration(note.durationMs ?? 0)}',
+        'processing' => 'Processing whiteboard keyframes...',
+        'failed' => 'Processing failed • Tap to view',
+        _ => statusLabel,
+      };
+    } else if (previewText != null && previewText.isNotEmpty) {
+      subtitleText = previewText;
+    } else {
+      final folderName = folderAsync?.asData?.value?.name;
+      if (folderName != null && folderName.isNotEmpty) {
+        subtitleText = '$folderName • Updated ${relativeTime(note.updatedAt)}';
+      } else if (note.durationMs != null && note.durationMs! > 0) {
+        subtitleText =
+            '${_formatDuration(note.durationMs!)} • Updated ${relativeTime(note.updatedAt)}';
+      } else {
+        subtitleText = 'Whiteboard note • Updated ${relativeTime(note.updatedAt)}';
+      }
+    }
+
     return Dismissible(
       key: ValueKey(note.id),
       direction: DismissDirection.endToStart,
@@ -54,15 +153,15 @@ class NoteCard extends ConsumerWidget {
       background: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
           color: colors.errorContainer,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(28),
         ),
         child: Icon(
           Icons.delete_outline_rounded,
           color: colors.onErrorContainer,
-          size: 22,
+          size: 24,
         ),
       ),
       onDismissed: (_) => onDelete(),
@@ -70,41 +169,43 @@ class NoteCard extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Material(
           color: colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(28),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            onLongPress: () => _showNoteActions(context, colors),
+            borderRadius: BorderRadius.circular(28),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: colors.outlineVariant.withValues(alpha: 0.35),
+                  width: 1,
                 ),
               ),
               child: Row(
                 children: [
-                  // Leading Board Icon (Material 3 container)
+                  // Circular Icon Badge (Matches the reference image)
                   Container(
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: isHighlight && note.status == 'recording'
                           ? colors.errorContainer.withValues(alpha: 0.7)
-                          : colors.secondaryContainer,
-                      borderRadius: BorderRadius.circular(12),
+                          : colors.surfaceContainerHigh,
                     ),
                     child: Icon(
-                      statusIcon,
+                      isHighlight ? statusIcon : Icons.auto_awesome_outlined,
                       color: isHighlight && note.status == 'recording'
                           ? colors.onErrorContainer
-                          : colors.onSecondaryContainer,
+                          : (isHighlight ? colors.primary : colors.onSurface),
                       size: 22,
                     ),
                   ),
                   const SizedBox(width: 14),
 
-                  // Main Text Content
+                  // Middle: Title & Subtitle
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,178 +218,34 @@ class NoteCard extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: 15.5,
+                            letterSpacing: -0.2,
                             color: colors.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            // Folder Badge if in a folder
-                            if (folderAsync != null)
-                              folderAsync.when(
-                                data: (folder) {
-                                  if (folder == null)
-                                    return const SizedBox.shrink();
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colors.surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.folder_outlined,
-                                            size: 11,
-                                            color: colors.onSurfaceVariant,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            folder.name,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color:
-                                                      colors.onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                loading: () => const SizedBox.shrink(),
-                                error: (_, _) => const SizedBox.shrink(),
-                              ),
-
-                            // Relative Time
-                            Text(
-                              relativeTime(note.updatedAt),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-
-                            // Duration (if available)
-                            if (note.durationMs != null &&
-                                note.durationMs! > 0) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                child: Text(
-                                  '•',
-                                  style: TextStyle(
-                                    color: colors.onSurfaceVariant.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                Icons.timer_outlined,
-                                size: 12,
-                                color: colors.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                _formatDuration(note.durationMs!),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-
-                            // Active status badge (recording/processing)
-                            if (isHighlight) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                child: Text(
-                                  '•',
-                                  style: TextStyle(
-                                    color: colors.onSurfaceVariant.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                statusLabel,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color:
-                                      note.status == 'recording' ||
-                                          note.status == 'failed'
-                                      ? colors.error
-                                      : colors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ],
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitleText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: isHighlight && note.status == 'recording'
+                                ? colors.error
+                                : colors.onSurfaceVariant,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
 
-                  // Popup Menu
-                  PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_vert_rounded,
-                      size: 18,
-                      color: colors.onSurfaceVariant,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    onSelected: (val) {
-                      if (val == 'rename') onRename?.call();
-                      if (val == 'delete') onDelete();
-                    },
-                    itemBuilder: (ctx) => [
-                      if (onRename != null)
-                        const PopupMenuItem(
-                          value: 'rename',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined, size: 16),
-                              SizedBox(width: 10),
-                              Text('Rename'),
-                            ],
-                          ),
-                        ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline,
-                              size: 16,
-                              color: colors.error,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Delete',
-                              style: TextStyle(color: colors.error),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  // Right: Chevron right arrow
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 24,
+                    color: colors.onSurfaceVariant.withValues(alpha: 0.65),
                   ),
                 ],
               ),
