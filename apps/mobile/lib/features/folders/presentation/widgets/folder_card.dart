@@ -23,16 +23,16 @@ class FolderCard extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final noteCountAsync = ref.watch(folderNoteCountProvider(folder.id));
 
-    const cardWidth = 165.0;
-    const cardHeight = 180.0;
-    const tabHeight = 24.0;
-    const frontPocketTop = 44.0;
+    const cardWidth = 148.0;
+    const cardHeight = 162.0;
+    const tabHeight = 22.0;
+    const frontPocketTop = 40.0;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: SizedBox(
           width: cardWidth,
           height: cardHeight,
@@ -49,15 +49,15 @@ class FolderCard extends ConsumerWidget {
 
               // 2. Paper Sheet Peeking Out from the Folder
               Positioned(
-                left: 12,
-                right: 12,
-                top: tabHeight + 8,
-                height: 40,
+                left: 10,
+                right: 10,
+                top: tabHeight + 7,
+                height: 36,
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerLowest,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(8),
+                      top: Radius.circular(7),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -86,7 +86,7 @@ class FolderCard extends ConsumerWidget {
                         colors.primary.withValues(alpha: 0.92),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.12),
@@ -95,7 +95,7 @@ class FolderCard extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -115,18 +115,18 @@ class FolderCard extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: colors.onPrimary,
-                                    fontSize: 17,
+                                    fontSize: 15.5,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                const SizedBox(height: 2),
                                 noteCountAsync.when(
                                   data: (count) => Text(
                                     count == 1 ? '1 note' : '$count notes',
                                     style: TextStyle(
                                       color: colors.onPrimary.withValues(alpha: 0.85),
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w400,
                                     ),
                                   ),
@@ -134,7 +134,7 @@ class FolderCard extends ConsumerWidget {
                                     '···',
                                     style: TextStyle(
                                       color: colors.onPrimary.withValues(alpha: 0.85),
-                                      fontSize: 13,
+                                      fontSize: 12,
                                     ),
                                   ),
                                   error: (_, _) => const SizedBox.shrink(),
@@ -146,20 +146,20 @@ class FolderCard extends ConsumerWidget {
                           // Three-Dot Action Pill Button (matches the reference image)
                           if (onEdit != null || onDelete != null)
                             Container(
-                              width: 28,
-                              height: 28,
+                              width: 26,
+                              height: 26,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: colors.onPrimary.withValues(alpha: 0.5),
-                                  width: 1.2,
+                                  width: 1.1,
                                 ),
                               ),
                               child: PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
                                 icon: Icon(
                                   Icons.more_horiz_rounded,
-                                  size: 16,
+                                  size: 15,
                                   color: colors.onPrimary,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -187,7 +187,7 @@ class FolderCard extends ConsumerWidget {
                                       child: Row(
                                         children: [
                                           Icon(Icons.delete_outline, size: 16, color: colors.error),
-                                          const SizedBox(width: 8),
+                                          SizedBox(width: 8),
                                           Text('Delete', style: TextStyle(color: colors.error)),
                                         ],
                                       ),
@@ -205,7 +205,7 @@ class FolderCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: colors.onPrimary.withValues(alpha: 0.72),
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -231,9 +231,9 @@ class _FolderBackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    const r = 18.0; // corner radius
+    const r = 16.0; // corner radius (-10%)
     final tabW = w * 0.44; // tab width ~44%
-    const tabH = 24.0; // shoulder height offset
+    const tabH = 22.0; // shoulder height offset (-10%)
 
     final path = Path();
     // Start at bottom-left

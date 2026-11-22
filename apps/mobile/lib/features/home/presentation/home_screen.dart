@@ -74,6 +74,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good morning,';
+    } else if (hour < 17) {
+      return 'Good afternoon,';
+    } else {
+      return 'Good evening,';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -86,7 +97,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: AppBar(
-        title: const Text('Boored', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _getGreeting(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              user?.name.trim().isNotEmpty == true ? user!.name : 'Friend',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
         centerTitle: false,
         actions: [
           Consumer(
@@ -240,12 +272,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   if (foldersState.folders.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 186,
+                        height: 168,
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           scrollDirection: Axis.horizontal,
                           itemCount: foldersState.folders.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
                           itemBuilder: (context, index) {
                             final folder = foldersState.folders[index];
                             return FolderCard(
