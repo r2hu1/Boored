@@ -234,7 +234,7 @@
   gutter: 18pt,
   align: top,
   [
-    #device-frame("assets/record-note-screen.jpeg", width: 4.4cm)
+    #device-frame("assets/screenshots/camera-screen.jpeg", width: 4.4cm)
     #v(3pt)
     #align(center)[#text(size: 7.5pt, fill: text-muted)[Live Capture with 4 Drag Handles]]
   ],
@@ -266,15 +266,15 @@
   gutter: 18pt,
   align: top,
   [
-    #device-frame("assets/new-note.jpeg", width: 4.4cm)
+    #device-frame("assets/screenshots/record-upload-or-create-folder-options.jpeg", width: 4.4cm)
     #v(3pt)
-    #align(center)[#text(size: 7.5pt, fill: text-muted)[Session Creation & Setup]]
+    #align(center)[#text(size: 7.5pt, fill: text-muted)[Quick Action Menu (Record, Import, Folders)]]
   ],
   [
     #feature-card(
-      "One-Tap Session Initialization",
-      "Quick modal dialog allows creating a lecture session with customized course titles, date stamps, and default capture frequencies. All session metadata is written to local Drift SQLite.",
-      tag: "Fast Onboarding"
+      "Multi-Source Lecture Intake",
+      "Record live in class with automated interval capture, import existing lecture video recordings from phone storage, or create structured subject folders to keep coursework organized.",
+      tag: "Flexible Intake"
     )
     #v(6pt)
     #feature-card(
@@ -291,9 +291,9 @@
 // PAGE 3: PROFESSOR REMOVAL & OCR
 // =============================================================
 
-#text(size: 16pt, weight: "bold", fill: text-main)[2. Professor Removal & Text Recognition]
+#text(size: 16pt, weight: "bold", fill: text-main)[2. Professor Removal & Note Processing]
 #v(2pt)
-#text(size: 9pt, fill: text-muted)[Eliminating occlusions and binarizing whiteboard text for clean extraction]
+#text(size: 9pt, fill: text-muted)[Eliminating occlusions, restoring hidden notes, and flexible document generation]
 #v(10pt)
 
 #grid(
@@ -301,21 +301,21 @@
   gutter: 18pt,
   align: top,
   [
-    #device-frame("assets/ocr-and-remove-professor.jpeg", width: 4.4cm)
+    #device-frame("assets/screenshots/generate-options.jpeg", width: 4.4cm)
     #v(3pt)
-    #align(center)[#text(size: 7.5pt, fill: text-muted)[Action Trigger for Post-Processing]]
+    #align(center)[#text(size: 7.5pt, fill: text-muted)[Granular Regeneration Options]]
   ],
   [
     #feature-card(
-      "Temporal Background Substitution",
-      "When a professor moves across the whiteboard, Boored tracks the person's neural segmentation mask across successive frames. Obscured board sections on one frame are replaced by unobstructed background pixels from previous or subsequent frames.",
+      "Multi-Frame Temporal Board Reconstruction",
+      "When a professor moves across the whiteboard, Boored tracks the neural segmentation mask across the session. Obscured coordinates are restored with the real handwriting from temporally adjacent frames where the board was exposed, rather than inpainting blank spaces.",
       tag: "Lecturer Removal"
     )
     #v(6pt)
     #feature-card(
-      "Distance-Tuned Segmentation Thresholds",
-      "Classroom cameras sit meters away from the board. Rather than standard close-up selfie thresholds (0.40+), Boored uses distance-calibrated confidence (0.25) on full-size masks to cleanly separate distant lecturers from marker drawings.",
-      tag: "ML Kit Segmentation"
+      "Granular On-Demand Processing",
+      "Students choose exactly what to build: standard Document PDF, Clean Copy with lecturer removed, Digital Copy with OCR text extraction, or run the complete pipeline with one tap.",
+      tag: "Processing Options"
     )
     #v(6pt)
     #feature-card(
@@ -333,21 +333,21 @@
   gutter: 18pt,
   align: top,
   [
-    #device-frame("assets/processed-note-paes.jpeg", width: 4.4cm)
+    #device-frame("assets/screenshots/home-screen.jpeg", width: 4.4cm)
     #v(3pt)
-    #align(center)[#text(size: 7.5pt, fill: text-muted)[Pages View with One-Tap Text Copy]]
+    #align(center)[#text(size: 7.5pt, fill: text-muted)[Subject Folders & Notes Feed]]
   ],
   [
     #feature-card(
-      "OpenCV Adaptive Binarization for OCR",
-      "Before passing images to text recognition, Boored executes CLAHE contrast expansion and Gaussian adaptive thresholding. Glare and shadows are removed, turning marker ink into sharp black text on pure white.",
-      tag: "OCR Preprocessing"
+      "Subject Folder Hierarchy",
+      "Organize lectures into customized subject folders (Physics, CS, Math) with note count badges and quick folder management.",
+      tag: "Course Organization"
     )
     #v(6pt)
     #feature-card(
-      "Extracted Text Cards with One-Tap Copy",
-      "The Pages tab presents each de-occluded keyframe alongside its extracted text block. A copy icon allows copying formulas, code snippets, or notes directly to the mobile clipboard.",
-      tag: "Student Productivity"
+      "Selective Page Editing & Management",
+      "Dedicated Edit Pages view allows selecting and deleting specific unwanted keyframes or bad shots, automatically re-indexing pages and updating all PDFs in sync.",
+      tag: "Page Editing"
     )
   ]
 )
@@ -364,12 +364,12 @@
 #v(10pt)
 
 #grid(
-  columns: (1fr, 1fr, 1fr, 1fr),
-  gutter: 10pt,
+  columns: (1fr, 1fr, 1fr),
+  gutter: 12pt,
   align: top,
   [
     #align(center)[
-      #device-frame("assets/processed-note-timeline.jpeg", width: 3.6cm)
+      #device-frame("assets/screenshots/timeline.jpeg", width: 4.5cm)
       #v(3pt)
       #text(size: 8pt, weight: "bold", fill: text-main)[Timeline Player]
     ]
@@ -380,7 +380,7 @@
   ],
   [
     #align(center)[
-      #device-frame("assets/processed-npte-pdf.jpeg", width: 3.6cm)
+      #device-frame("assets/screenshots/pdf-screen.jpeg", width: 4.5cm)
       #v(3pt)
       #text(size: 8pt, weight: "bold", fill: text-main)[Vector Visual PDF]
     ]
@@ -391,24 +391,13 @@
   ],
   [
     #align(center)[
-      #device-frame("assets/digital-note-pdf.jpeg", width: 3.6cm)
+      #device-frame("assets/screenshots/removed-professor-pdf.jpeg", width: 4.5cm)
       #v(3pt)
-      #text(size: 8pt, weight: "bold", fill: text-main)[Digital Notes PDF]
+      #text(size: 8pt, weight: "bold", fill: text-main)[Clean Copy (Professor Removed)]
     ]
     #v(2pt)
     #text(size: 7.5pt, fill: text-muted)[
-      Searchable text document with OCR content, under 200 KB for rapid study.
-    ]
-  ],
-  [
-    #align(center)[
-      #device-frame("assets/auth.jpeg", width: 3.6cm)
-      #v(3pt)
-      #text(size: 8pt, weight: "bold", fill: text-main)[Google OAuth & Sync]
-    ]
-    #v(2pt)
-    #text(size: 7.5pt, fill: text-muted)[
-      Secure login and cloud sync to self-hosted PostgreSQL and S3-compatible storage.
+      De-occluded whiteboard PDF with temporal reconstruction restoring actual board notes.
     ]
   ]
 )
@@ -427,9 +416,9 @@
   ],
   [
     #feature-card(
-      "Dual Format Document Generation",
-      "Students receive both a high-fidelity visual PDF of the physical board and a lightweight text-first PDF suitable for searching, copying, and fast mobile reading.",
-      tag: "Dual Pipeline"
+      "Triple-Tier Document Generation",
+      "Students receive a high-fidelity visual PDF of the physical board, a Clean Copy with the lecturer de-occluded, and a lightweight text-first PDF suitable for searching and fast mobile study.",
+      tag: "Document Pipeline"
     )
   ]
 )
@@ -462,10 +451,10 @@
       [#text(size: 8.5pt, weight: "bold", fill: primary)[Image Transforms]], [#text(size: 8.5pt)[Canny contour detection, warpPerspective homography, unsharp masking]],
       [#text(size: 8.5pt, weight: "bold", fill: primary)[Normalization]], [#text(size: 8.5pt)[L-channel CLAHE (2.2 clip limit) in LAB space for glare & shadow correction]],
       [#text(size: 8.5pt, weight: "bold", fill: primary)[Change Detection]], [#text(size: 8.5pt)[Frame-to-frame pixel differencing classifying ADD (>=4%), ERASE, or NONE]],
-      [#text(size: 8.5pt, weight: "bold", fill: primary)[Lecturer Removal]], [#text(size: 8.5pt)[ML Kit Selfie Segmentation (confidence 0.25) with temporal median compositing]],
+      [#text(size: 8.5pt, weight: "bold", fill: primary)[Lecturer Removal]], [#text(size: 8.5pt)[ML Kit Selfie Segmentation (0.15 threshold) + temporal multi-frame coordinate recovery]],
       [#text(size: 8.5pt, weight: "bold", fill: primary)[OCR Engine]], [#text(size: 8.5pt)[Gaussian adaptive threshold binarization + ML Kit Latin Text Recognition]],
       [#text(size: 8.5pt, weight: "bold", fill: primary)[Local Database]], [#text(size: 8.5pt)[Drift SQLite ORM tracking Notes, Keyframes, Event Types, and OCR Text]],
-      [#text(size: 8.5pt, weight: "bold", fill: primary)[PDF Generation]], [#text(size: 8.5pt)[Dual PDF engine (Visual Keyframe Landscape A4 + Digital Text Document)]]
+      [#text(size: 8.5pt, weight: "bold", fill: primary)[PDF Generation]], [#text(size: 8.5pt)[Multi-tier PDF engine (Document A4 + Clean De-occluded A4 + Digital Text Document)]]
     )
   ]
 )

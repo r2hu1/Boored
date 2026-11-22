@@ -24,7 +24,9 @@ Documenting university and technical whiteboard lectures with standard phone cam
 
 - **Interactive 4-Corner Board Rectification**: Live camera overlay with 4 draggable normalized corner pins that snap to whiteboard boundaries. Uses native OpenCV `warpPerspective` homography to flatten angled desk shots into planar views.
 - **Pre-Erase Keyframe Trigger**: Real-time OpenCV inter-frame change detection (`detectFrameChange`). When an erase event is detected (sudden luminance jump as dark ink is wiped to white), Boored automatically commits the keyframe right before the erase.
-- **Multi-Frame Lecturer Removal**: On-device neural segmentation (`google_mlkit_selfie_segmentation`) tracks lecturer movement and reconstructs blocked board text by blending background pixels from adjacent frames.
+- **Multi-Frame Temporal Lecturer Removal**: On-device neural segmentation (`google_mlkit_selfie_segmentation`) combined with multi-frame temporal reconstruction. Restores actual board handwriting written behind the lecturer by sampling unobstructed board coordinates across the timeline sequence.
+- **Granular Processing Options**: On-demand generation options to rebuild Document PDF, generate Clean Copy (de-occluded), extract Digital Notes (OCR), or run the complete pipeline.
+- **Page Management & Selective Deletion**: Dedicated Edit Pages screen allowing users to select, delete specific keyframes/pages, or batch remove pages with automatic re-indexing and synchronized PDF regeneration.
 - **OpenCV Adaptive Binarization & OCR**: Preprocesses frames with grayscale CLAHE and Gaussian adaptive thresholding to convert marker strokes to solid black text on clean white backgrounds before running ML Kit Latin text recognition.
 - **Interactive Timeline Player**: Replay how the board developed over the course of the lecture with scrub controls, variable replay speeds (0.5×, 1.0×, 2.0×), and state markers (`INITIAL`, `ADD`, `ERASE`).
 - **Pages View with 1-Tap Copy**: Browse individual de-occluded keyframes and copy formulas, code snippets, or notes directly to the mobile clipboard.
@@ -35,15 +37,20 @@ Documenting university and technical whiteboard lectures with standard phone cam
 
 ## Visual Workflow
 
-| Live Capture & Rectification | Post-Processing Trigger | De-occluded Keyframes & OCR |
+| Home & Folders | Action Options | Live Camera & Rectification |
 |:---:|:---:|:---:|
-| <img src="assets/record-note-screen.jpeg" width="240" alt="Capture Screen" /> | <img src="assets/ocr-and-remove-professor.jpeg" width="240" alt="Processing Trigger" /> | <img src="assets/processed-note-paes.jpeg" width="240" alt="Pages View" /> |
-| Draggable 4-corner perspective handles | 1-tap lecturer removal & OCR | Clean board frames with text copy |
+| <img src="assets/screenshots/home-screen.jpeg" width="240" alt="Home Screen" /> | <img src="assets/screenshots/record-upload-or-create-folder-options.jpeg" width="240" alt="Action Options" /> | <img src="assets/screenshots/camera-screen.jpeg" width="240" alt="Camera Screen" /> |
+| Organize lectures in folders with quick notes feed | Record live, upload video, or create folder | Real-time corner detection & perspective homography |
 
-| Scrubbable Timeline Player | Vector Visual PDF Export | Searchable Digital Notes PDF |
-|:---:|:---:|:---:|
-| <img src="assets/processed-note-timeline.jpeg" width="240" alt="Timeline Player" /> | <img src="assets/processed-npte-pdf.jpeg" width="240" alt="Visual PDF" /> | <img src="assets/digital-note-pdf.jpeg" width="240" alt="Digital PDF" /> |
-| 0.5×–2.0× variable playback & event tags | Full-resolution landscape A4 pages | Text-first PDF for quick revision |
+| Scrubbable Timeline Player | Granular Generation Options |
+|:---:|:---:|
+| <img src="assets/screenshots/timeline.jpeg" width="240" alt="Timeline Player" /> | <img src="assets/screenshots/generate-options.jpeg" width="240" alt="Regenerate Options" /> |
+| Event playback (INITIAL, ADD, ERASE) & scrub controls | Select Document PDF, Clean Copy, Digital Copy, or All |
+
+| Document PDF View | Clean Copy (Professor Removed) |
+|:---:|:---:|
+| <img src="assets/screenshots/pdf-screen.jpeg" width="240" alt="Document PDF" /> | <img src="assets/screenshots/removed-professor-pdf.jpeg" width="240" alt="Clean Copy PDF" /> |
+| Full-resolution landscape A4 vector document | Temporal multi-frame recovery restoring actual board notes |
 
 ---
 
