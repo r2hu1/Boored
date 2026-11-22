@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../notes/presentation/notes_controller.dart';
 import '../../notes/presentation/widgets/note_card.dart';
-import '../../notes/presentation/widgets/create_note_dialog.dart';
+import '../../notes/presentation/widgets/create_note_dialog.dart' show showCreateNoteSheet;
 import '../../sync/sync_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -369,10 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _createAndCaptureLive(BuildContext context) async {
-    final title = await showDialog<String>(
-      context: context,
-      builder: (_) => const CreateNoteDialog(),
-    );
+    final title = await showCreateNoteSheet(context);
     if (!mounted || title == null || title.isEmpty) return;
 
     final note = await ref
@@ -394,10 +391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted || video == null) return;
 
     // 2. Ask for title
-    final title = await showDialog<String>(
-      context: context,
-      builder: (_) => const CreateNoteDialog(),
-    );
+    final title = await showCreateNoteSheet(context);
     if (!mounted || title == null || title.isEmpty) return;
 
     // 3. Create note

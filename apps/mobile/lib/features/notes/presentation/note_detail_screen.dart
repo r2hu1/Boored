@@ -19,6 +19,7 @@ import '../../capture/data/mlkit_segmentation_engine.dart';
 import '../../capture/data/opencv_service.dart';
 import '../../capture/data/session_finalizer.dart';
 import 'notes_controller.dart';
+import 'widgets/create_note_dialog.dart' show showRenameNoteSheet, showDeleteNoteSheet;
 
 final _noteProvider = StreamProvider.autoDispose.family<Note?, String>((ref, noteId) {
   final db = ref.watch(databaseProvider);
@@ -841,39 +842,14 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 
   Future<void> _showRenameDialog(Note note) async {
-    final newTitle = await showDialog<String>(
-      context: context,
-      builder: (dialogCtx) => _RenameNoteDialog(initialTitle: note.title),
-    );
+    final newTitle = await showRenameNoteSheet(context, currentTitle: note.title);
 
     if (!mounted || newTitle == null || newTitle == note.title) return;
     await ref.read(notesNotifierProvider.notifier).updateNoteTitle(widget.noteId, newTitle);
   }
 
   Future<void> _confirmDelete(Note note) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) {
-        final errorColor = Theme.of(dialogCtx).colorScheme.error;
-        return AlertDialog(
-          title: const Text('Delete Note?'),
-          content: Text('Delete "${note.title}"? You can undo this from the notes list.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: errorColor,
-              ),
-              onPressed: () => Navigator.of(dialogCtx).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
+    final confirmed = await showDeleteNoteSheet(context, noteTitle: note.title);
 
     if (!mounted || confirmed != true) return;
 
@@ -884,60 +860,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   }
 }
 
-class _RenameNoteDialog extends StatefulWidget {
-  final String initialTitle;
 
-  const _RenameNoteDialog({required this.initialTitle});
-
-  @override
-  State<_RenameNoteDialog> createState() => _RenameNoteDialogState();
-}
-
-class _RenameNoteDialogState extends State<_RenameNoteDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialTitle);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Rename Note'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(labelText: 'Title'),
-        onSubmitted: (val) {
-          final text = val.trim();
-          if (text.isNotEmpty) Navigator.of(context).pop(text);
-        },
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final text = _controller.text.trim();
-            if (text.isNotEmpty) Navigator.of(context).pop(text);
-          },
-          child: const Text('Rename'),
-        ),
-      ],
-    );
-  }
-}
 
 class _PdfTab extends StatefulWidget {
   final String noteId;
