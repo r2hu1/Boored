@@ -58,7 +58,7 @@ class FoldersNotifier extends Notifier<FoldersState> {
     return const FoldersState();
   }
 
-  Future<Folder?> createFolder({required String name, required String icon}) async {
+  Future<Folder?> createFolder({required String name, String icon = '📁'}) async {
     final userId = ref.read(authNotifierProvider).user?.id;
     if (userId == null) return null;
     try {

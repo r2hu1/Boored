@@ -219,44 +219,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 104,
+                  height: 186,
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     scrollDirection: Axis.horizontal,
                     itemCount: foldersState.folders.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       // First item is "+ New Folder" action card
                       if (index == 0) {
                         return Material(
-                          color: colors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(16),
+                          color: colors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(18),
                           child: InkWell(
                             onTap: () => _createFolder(context),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(18),
                             child: Container(
-                              width: 110,
-                              padding: const EdgeInsets.all(12),
+                              width: 130,
+                              height: 180,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: colors.outlineVariant.withValues(alpha: 0.4),
-                                  style: BorderStyle.solid,
+                                  color: colors.outlineVariant.withValues(alpha: 0.5),
                                 ),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.create_new_folder_outlined,
-                                    size: 26,
-                                    color: colors.primary,
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: colors.primaryContainer,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.create_new_folder_outlined,
+                                      size: 24,
+                                      color: colors.onPrimaryContainer,
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 10),
                                   Text(
                                     'New Folder',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: colors.primary,
                                     ),
@@ -433,25 +440,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _createFolder(BuildContext context) async {
-    final result = await showCreateFolderSheet(context);
-    if (!mounted || result == null) return;
+    final name = await showCreateFolderSheet(context);
+    if (!mounted || name == null) return;
     await ref.read(foldersNotifierProvider.notifier).createFolder(
-          name: result.name,
-          icon: result.icon,
+          name: name,
         );
   }
 
   Future<void> _editFolder(BuildContext context, dynamic folder) async {
-    final result = await showEditFolderSheet(
+    final name = await showEditFolderSheet(
       context,
       initialName: folder.name,
-      initialIcon: folder.icon,
     );
-    if (!mounted || result == null) return;
+    if (!mounted || name == null) return;
     await ref.read(foldersNotifierProvider.notifier).updateFolder(
           folder.id,
-          name: result.name,
-          icon: result.icon,
+          name: name,
         );
   }
 

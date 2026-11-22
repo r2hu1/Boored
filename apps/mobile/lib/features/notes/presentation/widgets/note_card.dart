@@ -141,9 +141,10 @@ class NoteCard extends ConsumerWidget {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            folder.icon,
-                                            style: const TextStyle(fontSize: 11),
+                                          Icon(
+                                            Icons.folder_outlined,
+                                            size: 11,
+                                            color: colors.onSurfaceVariant,
                                           ),
                                           const SizedBox(width: 4),
                                           Text(

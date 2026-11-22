@@ -47,19 +47,10 @@ class _FolderDetailScreenState extends ConsumerState<FolderDetailScreen> {
         return Scaffold(
           backgroundColor: colors.surface,
           appBar: AppBar(
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(folder.icon, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    folder.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
+            title: Text(
+              folder.name,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             actions: [
               PopupMenuButton<String>(
@@ -107,11 +98,15 @@ class _FolderDetailScreenState extends ConsumerState<FolderDetailScreen> {
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: colors.surfaceContainerHighest,
+                            color: colors.primaryContainer,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           alignment: Alignment.center,
-                          child: Text(folder.icon, style: const TextStyle(fontSize: 32)),
+                          child: Icon(
+                            Icons.folder_open_rounded,
+                            size: 32,
+                            color: colors.onPrimaryContainer,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -199,16 +194,14 @@ class _FolderDetailScreenState extends ConsumerState<FolderDetailScreen> {
   }
 
   Future<void> _editFolder(Folder folder) async {
-    final result = await showEditFolderSheet(
+    final name = await showEditFolderSheet(
       context,
       initialName: folder.name,
-      initialIcon: folder.icon,
     );
-    if (!mounted || result == null) return;
+    if (!mounted || name == null) return;
     ref.read(foldersNotifierProvider.notifier).updateFolder(
           folder.id,
-          name: result.name,
-          icon: result.icon,
+          name: name,
         );
   }
 

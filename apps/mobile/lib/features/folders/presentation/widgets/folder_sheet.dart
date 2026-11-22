@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 
-const List<String> kNotionFolderIcons = [
-  '📁', '📚', '💻', '🔬', '📐', '📝',
-  '🎨', '💡', '⚡', '🚀', '🧠', '🏛️',
-  '📖', '🧪', '📊', '🎯', '🌐', '🔢',
-  '🌿', '⚙️', '🖋️', '🪐', '🎬', '🧩',
-];
-
-/// Shows a drawer to create a new folder with a Notion-style icon.
-/// Returns a Record `({String name, String icon})?` or null if cancelled.
-Future<({String name, String icon})?> showCreateFolderSheet(BuildContext context) {
-  return showModalBottomSheet<({String name, String icon})>(
+/// Shows a bottom-sheet drawer to create a new folder.
+/// Returns the folder name string, or null if cancelled.
+Future<String?> showCreateFolderSheet(BuildContext context) {
+  return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
@@ -20,13 +13,12 @@ Future<({String name, String icon})?> showCreateFolderSheet(BuildContext context
   );
 }
 
-/// Shows a drawer to rename or change icon for an existing folder.
-Future<({String name, String icon})?> showEditFolderSheet(
+/// Shows a bottom-sheet drawer to rename an existing folder.
+Future<String?> showEditFolderSheet(
   BuildContext context, {
   required String initialName,
-  required String initialIcon,
 }) {
-  return showModalBottomSheet<({String name, String icon})>(
+  return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
@@ -34,7 +26,6 @@ Future<({String name, String icon})?> showEditFolderSheet(
     ),
     builder: (ctx) => _FolderSheet(
       initialName: initialName,
-      initialIcon: initialIcon,
       isEditing: true,
     ),
   );
@@ -42,12 +33,10 @@ Future<({String name, String icon})?> showEditFolderSheet(
 
 class _FolderSheet extends StatefulWidget {
   final String? initialName;
-  final String? initialIcon;
   final bool isEditing;
 
   const _FolderSheet({
     this.initialName,
-    this.initialIcon,
     this.isEditing = false,
   });
 
@@ -58,13 +47,11 @@ class _FolderSheet extends StatefulWidget {
 class _FolderSheetState extends State<_FolderSheet> {
   late final TextEditingController _controller;
   final _formKey = GlobalKey<FormState>();
-  late String _selectedIcon;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialName ?? '');
-    _selectedIcon = widget.initialIcon ?? '📁';
   }
 
   @override
@@ -75,10 +62,7 @@ class _FolderSheetState extends State<_FolderSheet> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      Navigator.of(context).pop((
-        name: _controller.text.trim(),
-        icon: _selectedIcon,
-      ));
+      Navigator.of(context).pop(_controller.text.trim());
     }
   }
 
@@ -98,7 +82,7 @@ class _FolderSheetState extends State<_FolderSheet> {
             child: Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
                 color: colors.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
@@ -106,81 +90,13 @@ class _FolderSheetState extends State<_FolderSheet> {
             ),
           ),
           Text(
-            widget.isEditing ? 'Edit Folder' : 'New Folder',
+            widget.isEditing ? 'Rename Folder' : 'New Folder',
             textAlign: TextAlign.center,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Notion-style Large Icon Display & Prompt
-          Center(
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colors.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  _selectedIcon,
-                  style: const TextStyle(fontSize: 32),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Select an icon',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Icon Picker Horizontal Grid / Scroll
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: kNotionFolderIcons.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final icon = kNotionFolderIcons[index];
-                final isSelected = icon == _selectedIcon;
-                return InkWell(
-                  onTap: () => setState(() => _selectedIcon = icon),
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colors.primaryContainer
-                          : colors.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSelected
-                            ? colors.primary
-                            : colors.outlineVariant.withValues(alpha: 0.3),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(icon, style: const TextStyle(fontSize: 20)),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
 
           // Name form
           Form(
@@ -191,7 +107,7 @@ class _FolderSheetState extends State<_FolderSheet> {
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
                 labelText: 'Folder Name',
-                hintText: 'e.g. Physics 101, Computer Science',
+                hintText: 'e.g. Designs, Physics, Math',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -205,7 +121,7 @@ class _FolderSheetState extends State<_FolderSheet> {
               onFieldSubmitted: (_) => _submit(),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
           // Action buttons
           Row(
