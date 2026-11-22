@@ -46,18 +46,27 @@ class AuthRepository {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+    await _apiClient.tokenStorage.saveUserData(userData);
 
     return AuthUser.fromJson(userData);
   }
 
-  /// Restore user session using stored access token
+  /// Restore user session using stored tokens and cached user data
   Future<AuthUser?> getCurrentUser() async {
     final token = await _apiClient.tokenStorage.getAccessToken();
     if (token == null || token.isEmpty) return null;
 
+    // Fast-path: return cached user data if already available locally
+    final cached = await _apiClient.tokenStorage.getUserData();
+    if (cached != null) {
+      return AuthUser.fromJson(cached);
+    }
+
     try {
       final response = await _apiClient.dio.get('/me');
-      return AuthUser.fromJson(response.data as Map<String, dynamic>);
+      final userData = response.data as Map<String, dynamic>;
+      await _apiClient.tokenStorage.saveUserData(userData);
+      return AuthUser.fromJson(userData);
     } catch (_) {
       return null;
     }

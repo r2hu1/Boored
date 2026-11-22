@@ -25,7 +25,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: authNotifier,
     redirect: (context, state) {
-      final isLoggedIn = ref.read(authNotifierProvider).user != null;
+      final authState = ref.read(authNotifierProvider);
+      if (authState.isLoading && authState.user == null) {
+        // While checking stored session on app launch, do not prematurely redirect
+        return null;
+      }
+
+      final isLoggedIn = authState.user != null;
       final isLoggingIn = state.matchedLocation == '/login';
 
       if (!isLoggedIn && !isLoggingIn) return '/login';
