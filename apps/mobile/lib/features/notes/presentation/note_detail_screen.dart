@@ -47,6 +47,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   bool _isFinalizing = false;
   int _pdfReloadTrigger = 0;
   bool _hasDigitalPdf = false;
+  bool _hasCleanPdf = false;
 
   // Timeline player state
   int _currentKeyframeIndex = 0;
@@ -57,23 +58,28 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _checkDigitalPdfExists();
+    _checkExtraPdfsExist();
   }
 
-  Future<void> _checkDigitalPdfExists() async {
+  int get _tabCount => 3 + (_hasDigitalPdf ? 1 : 0) + (_hasCleanPdf ? 1 : 0);
+
+  Future<void> _checkExtraPdfsExist() async {
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final digitalPdf = File(p.join(appDir.path, 'captures', widget.noteId, 'digital.pdf'));
-      final exists = await digitalPdf.exists();
-      if (mounted && exists != _hasDigitalPdf) {
+      final cleanPdf = File(p.join(appDir.path, 'captures', widget.noteId, 'clean.pdf'));
+      final digitalExists = await digitalPdf.exists();
+      final cleanExists = await cleanPdf.exists();
+      if (mounted && (digitalExists != _hasDigitalPdf || cleanExists != _hasCleanPdf)) {
         setState(() {
           final oldIndex = _tabController.index;
           _tabController.dispose();
-          _hasDigitalPdf = exists;
+          _hasDigitalPdf = digitalExists;
+          _hasCleanPdf = cleanExists;
           _tabController = TabController(
-            length: _hasDigitalPdf ? 4 : 3,
+            length: _tabCount,
             vsync: this,
-            initialIndex: oldIndex.clamp(0, (_hasDigitalPdf ? 4 : 3) - 1),
+            initialIndex: oldIndex.clamp(0, _tabCount - 1),
           );
         });
       }
@@ -126,7 +132,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       );
 
       final digitalPath = await finalizer.generateDigitalPdf(widget.noteId);
-      await _checkDigitalPdfExists();
+      await _checkExtraPdfsExist();
 
       if (mounted) {
         setState(() {
@@ -158,7 +164,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     }
   }
 
-  Future<void> _runFinalPass({bool removeLecturer = true}) async {
+  Future<void> _runFinalPass() async {
     setState(() => _isFinalizing = true);
     try {
       final db = ref.read(databaseProvider);
@@ -174,28 +180,68 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       );
 
       try {
-        await finalizer.finalizeNote(widget.noteId, removeLecturer: removeLecturer);
+        await finalizer.finalizeNote(widget.noteId, removeLecturer: false);
       } finally {
         await segmenter.dispose();
       }
 
-      await _checkDigitalPdfExists();
+      await _checkExtraPdfsExist();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              removeLecturer
-                  ? 'Professor removal & finalization complete!'
-                  : 'Processing complete!',
-            ),
-          ),
+          const SnackBar(content: Text('PDF generated!')),
         );
         setState(() => _pdfReloadTrigger++);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error finalizing note: $e')),
+          SnackBar(content: Text('Error generating PDF: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFinalizing = false);
+    }
+  }
+
+  Future<void> _removeProfessor() async {
+    setState(() => _isFinalizing = true);
+    try {
+      final db = ref.read(databaseProvider);
+      final segmenter = MLKitSegmentationEngine();
+      final finalizer = SessionFinalizer(
+        notesDao: NotesDao(db),
+        keyframesDao: KeyframesDao(db),
+        recognitionEngine: MLKitRecognitionEngine(),
+        lecturerRemovalProcessor: LecturerRemovalProcessor(
+          segmenter: segmenter,
+          openCVService: OpenCVService(),
+        ),
+      );
+
+      try {
+        await finalizer.removeProfessorAndGeneratePdf(widget.noteId);
+      } finally {
+        await segmenter.dispose();
+      }
+
+      await _checkExtraPdfsExist();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Professor removed! Clean PDF generated.')),
+        );
+        setState(() {
+          _pdfReloadTrigger++;
+          // Switch to the Clean tab
+          if (_hasCleanPdf) {
+            final cleanTabIndex = 3 + (_hasDigitalPdf ? 1 : 0);
+            _tabController.animateTo(cleanTabIndex);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error removing professor: $e')),
         );
       }
     } finally {
@@ -294,6 +340,17 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                           ],
                         ),
                       ),
+                    if (_hasCleanPdf)
+                      const Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 16),
+                            SizedBox(width: 6),
+                            Text('Clean'),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -328,7 +385,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               PopupMenuButton<String>(
                 onSelected: (val) {
                   if (val == 'extract_ocr') _extractTextAndMakeDigitalCopy();
-                  if (val == 'remove_professor') _runFinalPass(removeLecturer: true);
+                  if (val == 'remove_professor') _removeProfessor();
                   if (val == 'rename') _showRenameDialog(note);
                   if (val == 'open_pdf') _openPdfExternally();
                   if (val == 'download_pdf') _downloadPdfToDownloads(note);
@@ -449,6 +506,14 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         fileName: 'digital.pdf',
                         title: 'Digital Copy',
                         onRegenerate: _extractTextAndMakeDigitalCopy,
+                      ),
+                    if (_hasCleanPdf)
+                      _PdfTab(
+                        key: ValueKey('${widget.noteId}_clean_$_pdfReloadTrigger'),
+                        noteId: widget.noteId,
+                        fileName: 'clean.pdf',
+                        title: 'Clean Copy',
+                        onRegenerate: _removeProfessor,
                       ),
                   ],
                 );

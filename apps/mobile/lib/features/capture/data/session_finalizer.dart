@@ -111,18 +111,75 @@ class SessionFinalizer {
     final pdfFile = File(pdfPath);
     await pdfFile.writeAsBytes(await pdf.save());
 
-    // Step 5b: Digital OCR PDF document generation (if OCR text extracted)
-    await generateDigitalPdf(noteId);
-
     // Step 6: Mark note as ready
     await notesDao.updateNote(noteId, status: 'ready');
 
     return pdfPath;
   }
 
-  /// Generates a canvas-style digital PDF that embeds the original whiteboard
-  /// image (preserving drawings, diagrams, arrows) with any extracted OCR text
-  /// placed below each image for searchability and copy-paste.
+  /// Runs professor/lecturer removal on all keyframes and generates
+  /// a separate clean PDF (`clean.pdf`) with the de-occluded images.
+  /// Does NOT run OCR, does NOT regenerate document.pdf or digital.pdf.
+  Future<String?> removeProfessorAndGeneratePdf(String noteId) async {
+    final rawKeyframes = await keyframesDao.getKeyframesForNote(noteId);
+    if (rawKeyframes.isEmpty) return null;
+
+    // Run segmentation + compositing on all frames
+    final keyframeImagePaths = rawKeyframes.map((k) => k.imagePath).toList();
+    final deoccludedPaths =
+        await lecturerRemovalProcessor.processKeyframeSequence(keyframeImagePaths);
+
+    // Update keyframe image paths in DB
+    for (int i = 0; i < rawKeyframes.length && i < deoccludedPaths.length; i++) {
+      final kf = rawKeyframes[i];
+      final cleanPath = deoccludedPaths[i];
+      if (cleanPath != kf.imagePath) {
+        await keyframesDao.updateKeyframeImageAndText(
+          kf.id,
+          cleanPath,
+          kf.extractedText ?? '',
+        );
+      }
+    }
+
+    // Generate clean PDF from the de-occluded images
+    final appDir = await getApplicationDocumentsDirectory();
+    final noteDir = Directory(p.join(appDir.path, 'captures', noteId));
+    if (!noteDir.existsSync()) {
+      noteDir.createSync(recursive: true);
+    }
+
+    final pdf = pw.Document();
+    for (int i = 0; i < deoccludedPaths.length; i++) {
+      final imgPath = deoccludedPaths[i];
+      if (File(imgPath).existsSync()) {
+        final imageBytes = await File(imgPath).readAsBytes();
+        final image = pw.MemoryImage(imageBytes);
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4.landscape,
+            margin: pw.EdgeInsets.zero,
+            build: (pw.Context ctx) {
+              return pw.FullPage(
+                ignoreMargins: true,
+                child: pw.Center(
+                  child: pw.Image(image, fit: pw.BoxFit.contain),
+                ),
+              );
+            },
+          ),
+        );
+      }
+    }
+
+    final cleanPdfPath = p.join(noteDir.path, 'clean.pdf');
+    final cleanPdfFile = File(cleanPdfPath);
+    await cleanPdfFile.writeAsBytes(await pdf.save());
+    return cleanPdfPath;
+  }
+
+  /// Generates a text-only digital PDF from extracted OCR text.
+  /// No images are embedded — this is a pure digital text document.
   Future<String?> generateDigitalPdf(String noteId) async {
     final note = await notesDao.getNoteById(noteId);
     final keyframes = await keyframesDao.getKeyframesForNote(noteId);
@@ -140,17 +197,6 @@ class SessionFinalizer {
     for (int i = 0; i < keyframes.length; i++) {
       final kf = keyframes[i];
       final textContent = (kf.extractedText ?? '').trim();
-      final imageFile = File(kf.imagePath);
-      final hasImage = imageFile.existsSync();
-
-      // Load image bytes if the file exists
-      pw.MemoryImage? image;
-      if (hasImage) {
-        try {
-          final bytes = await imageFile.readAsBytes();
-          image = pw.MemoryImage(bytes);
-        } catch (_) {}
-      }
 
       digitalPdf.addPage(
         pw.MultiPage(
@@ -233,54 +279,8 @@ class SessionFinalizer {
                 ),
               ),
 
-              // Canvas: embedded whiteboard image (preserves drawings, diagrams, etc.)
-              if (image != null)
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 12),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                  ),
-                  child: pw.ClipRRect(
-                    horizontalRadius: 4,
-                    verticalRadius: 4,
-                    child: pw.Image(image, fit: pw.BoxFit.fitWidth),
-                  ),
-                )
-              else
-                pw.Container(
-                  height: 80,
-                  margin: const pw.EdgeInsets.only(bottom: 12),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      '[Image not available]',
-                      style: const pw.TextStyle(
-                        fontSize: 10,
-                        color: PdfColors.grey500,
-                        fontStyle: pw.FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Extracted text below the image (for search & copy-paste)
-              if (textContent.isNotEmpty) ...[
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 4),
-                  child: pw.Text(
-                    'Extracted Text',
-                    style: pw.TextStyle(
-                      fontSize: 10,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.grey600,
-                    ),
-                  ),
-                ),
+              // Text content only
+              if (textContent.isNotEmpty)
                 pw.Container(
                   padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
@@ -296,8 +296,26 @@ class SessionFinalizer {
                       color: PdfColors.black,
                     ),
                   ),
+                )
+              else
+                pw.Container(
+                  height: 60,
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      '[No text extracted for this page]',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey500,
+                        fontStyle: pw.FontStyle.italic,
+                      ),
+                    ),
+                  ),
                 ),
-              ],
             ];
           },
         ),

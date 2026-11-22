@@ -292,6 +292,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  ] else ...[
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 168,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _CreateFolderCard(
+                            onTap: () => _createFolder(context),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
                   ],
                   SliverToBoxAdapter(
                     child: Padding(
@@ -667,4 +680,144 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       '&video=${Uri.encodeComponent(video.path)}',
     );
   }
+}
+
+
+class _CreateFolderCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreateFolderCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    const cardWidth = 148.0;
+    const cardHeight = 162.0;
+    const tabHeight = 22.0;
+    const frontPocketTop = 40.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          width: cardWidth,
+          height: cardHeight,
+          child: Stack(
+            children: [
+              // Back Folder Flap with Tab Shape
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _CreateFolderBackPainter(
+                    color: colors.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+
+              // Paper Sheet Peeking Out
+              Positioned(
+                left: 10,
+                right: 10,
+                top: tabHeight + 7,
+                height: 36,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(7),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Front Folder Pocket
+              Positioned(
+                left: 0,
+                right: 0,
+                top: frontPocketTop,
+                bottom: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: colors.outlineVariant,
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    color: colors.surfaceContainerHigh,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.create_new_folder_rounded,
+                        size: 32,
+                        color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'New Folder',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateFolderBackPainter extends CustomPainter {
+  final Color color;
+
+  const _CreateFolderBackPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    const r = 16.0;
+    final tabW = w * 0.44;
+    const tabH = 22.0;
+
+    final path = Path();
+    path.moveTo(0, h - r);
+    path.lineTo(0, r);
+    path.quadraticBezierTo(0, 0, r, 0);
+    path.lineTo(tabW - 10, 0);
+    path.cubicTo(tabW + 2, 0, tabW + 2, tabH, tabW + 16, tabH);
+    path.lineTo(w - r, tabH);
+    path.quadraticBezierTo(w, tabH, w, tabH + r);
+    path.lineTo(w, h - r);
+    path.quadraticBezierTo(w, h, w - r, h);
+    path.lineTo(r, h);
+    path.quadraticBezierTo(0, h, 0, h - r);
+    path.close();
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CreateFolderBackPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
