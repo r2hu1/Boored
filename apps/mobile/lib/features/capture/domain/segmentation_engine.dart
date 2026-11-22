@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 abstract class SegmentationEngine {
   Future<SegmentationMaskResult?> processImage(String imagePath);
   Future<void> dispose();
@@ -21,5 +23,13 @@ class SegmentationMaskResult {
     }
     // Person detected if more than 0.5% of total mask area has confidence > 0.15
     return count > (confidences.length * 0.005);
+  }
+
+  Uint8List toByteArray({double threshold = 0.15}) {
+    final bytes = Uint8List(confidences.length);
+    for (int i = 0; i < confidences.length; i++) {
+      bytes[i] = confidences[i] > threshold ? 255 : 0;
+    }
+    return bytes;
   }
 }

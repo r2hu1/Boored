@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import '../presentation/widgets/board_overlay.dart';
 
@@ -109,6 +110,34 @@ class OpenCVService {
       );
     } catch (_) {
       return const FrameChangeResult(eventType: 'NONE', diffRatio: 0.0);
+    }
+  }
+
+  Future<String?> reconstructWhiteboard({
+    required String currentPath,
+    required Uint8List currentMaskBytes,
+    required int maskWidth,
+    required int maskHeight,
+    required List<String> candidatePaths,
+    required List<Uint8List> candidateMaskBytesList,
+    required String dstPath,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>(
+        'reconstructWhiteboard',
+        {
+          'currentPath': currentPath,
+          'currentMaskBytes': currentMaskBytes,
+          'maskWidth': maskWidth,
+          'maskHeight': maskHeight,
+          'candidatePaths': candidatePaths,
+          'candidateMaskBytes': candidateMaskBytesList,
+          'dstPath': dstPath,
+        },
+      );
+      return result;
+    } catch (_) {
+      return null;
     }
   }
 

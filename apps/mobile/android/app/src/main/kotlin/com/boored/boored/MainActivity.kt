@@ -49,6 +49,7 @@ class MainActivity : FlutterActivity() {
                 "enhanceWhiteboard" -> handleEnhance(call, result)
                 "detectFrameChange" -> handleDetectChange(call, result)
                 "compositeUnoccluded" -> handleComposite(call, result)
+                "reconstructWhiteboard" -> handleReconstructWhiteboard(call, result)
                 "preprocessForOcr" -> handlePreprocessOcr(call, result)
                 "openPdf" -> handleOpenPdf(call, result)
                 "extractVideoFrames" -> handleExtractVideoFrames(call, result)
@@ -331,6 +332,47 @@ class MainActivity : FlutterActivity() {
                         result.success(dstPath)
                     } else {
                         result.error("COMPOSITE_FAILED", "Failed to composite frames", null)
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.error("OPENCV_ERROR", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun handleReconstructWhiteboard(call: MethodCall, result: MethodChannel.Result) {
+        val currentPath = call.argument<String>("currentPath")
+        val currentMaskBytes = call.argument<ByteArray>("currentMaskBytes")
+        val maskWidth = call.argument<Int>("maskWidth")
+        val maskHeight = call.argument<Int>("maskHeight")
+        val candidatePaths = call.argument<List<String>>("candidatePaths") ?: emptyList()
+        val candidateMaskBytes = call.argument<List<ByteArray>>("candidateMaskBytes") ?: emptyList()
+        val dstPath = call.argument<String>("dstPath")
+
+        if (currentPath == null || currentMaskBytes == null || dstPath == null ||
+            maskWidth == null || maskHeight == null) {
+            result.error("INVALID_ARGUMENT", "currentPath, maskBytes, and dstPath are required", null)
+            return
+        }
+
+        scope.launch {
+            try {
+                val success = reconstructWhiteboardNative(
+                    currentPath,
+                    currentMaskBytes,
+                    maskWidth,
+                    maskHeight,
+                    candidatePaths,
+                    candidateMaskBytes,
+                    dstPath
+                )
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        result.success(dstPath)
+                    } else {
+                        result.error("RECONSTRUCT_FAILED", "Failed to reconstruct whiteboard", null)
                     }
                 }
             } catch (e: Exception) {
@@ -921,6 +963,167 @@ class MainActivity : FlutterActivity() {
         resultMat.release()
         outRgba.release()
 
+        return true
+    }
+
+    private fun reconstructWhiteboardNative(
+        currentPath: String,
+        currentMaskBytes: ByteArray,
+        maskWidth: Int,
+        maskHeight: Int,
+        candidatePaths: List<String>,
+        candidateMaskBytesList: List<ByteArray>,
+        dstPath: String
+    ): Boolean {
+        val currBmp = decodeBitmapWithOrientation(currentPath) ?: return false
+
+        val currRgba = Mat()
+        Utils.bitmapToMat(currBmp, currRgba)
+        currBmp.recycle()
+
+        val resultMat = Mat()
+        Imgproc.cvtColor(currRgba, resultMat, Imgproc.COLOR_RGBA2BGR)
+        currRgba.release()
+
+        fun buildMaskFromBytes(bytes: ByteArray, mWidth: Int, mHeight: Int): Mat {
+            if (bytes.isEmpty()) {
+                return Mat.zeros(resultMat.size(), CvType.CV_8UC1)
+            }
+            val rawMat = Mat(mHeight, mWidth, CvType.CV_8UC1)
+            rawMat.put(0, 0, bytes)
+
+            val fullMat = Mat()
+            Imgproc.resize(rawMat, fullMat, resultMat.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
+            rawMat.release()
+
+            val closeKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(25.0, 55.0))
+            Imgproc.morphologyEx(fullMat, fullMat, Imgproc.MORPH_CLOSE, closeKernel)
+            closeKernel.release()
+
+            val dilateKernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(25.0, 25.0))
+            val dilatedMat = Mat()
+            Imgproc.dilate(fullMat, dilatedMat, dilateKernel)
+            dilateKernel.release()
+            fullMat.release()
+
+            return dilatedMat
+        }
+
+        var unresolvedMask = buildMaskFromBytes(currentMaskBytes, maskWidth, maskHeight)
+
+        if (Core.countNonZero(unresolvedMask) == 0) {
+            unresolvedMask.release()
+            return saveMatAsJpeg(resultMat, dstPath)
+        }
+
+        for (i in candidatePaths.indices) {
+            if (Core.countNonZero(unresolvedMask) == 0) break
+
+            val candPath = candidatePaths[i]
+            if (candPath == currentPath) continue
+
+            val candBmp = decodeBitmapWithOrientation(candPath) ?: continue
+            val candRgba = Mat()
+            Utils.bitmapToMat(candBmp, candRgba)
+            candBmp.recycle()
+
+            val candMat = Mat()
+            Imgproc.cvtColor(candRgba, candMat, Imgproc.COLOR_RGBA2BGR)
+            candRgba.release()
+
+            if (candMat.size() != resultMat.size()) {
+                Imgproc.resize(candMat, candMat, resultMat.size())
+            }
+
+            val candBytes = if (i < candidateMaskBytesList.size) candidateMaskBytesList[i] else ByteArray(0)
+            val candMask = buildMaskFromBytes(candBytes, maskWidth, maskHeight)
+
+            // availableMask = unresolvedMask AND (NOT candMask)
+            // Real whiteboard content from candidate at the exact same physical coordinates
+            val candInv = Mat()
+            Core.bitwise_not(candMask, candInv)
+            val availableMask = Mat()
+            Core.bitwise_and(unresolvedMask, candInv, availableMask)
+            candInv.release()
+            candMask.release()
+
+            if (Core.countNonZero(availableMask) > 0) {
+                val maskBgr = Mat()
+                Imgproc.cvtColor(availableMask, maskBgr, Imgproc.COLOR_GRAY2BGR)
+                val smoothMask = Mat()
+                Imgproc.GaussianBlur(maskBgr, smoothMask, Size(15.0, 15.0), 0.0)
+                maskBgr.release()
+
+                val mask32F = Mat()
+                smoothMask.convertTo(mask32F, CvType.CV_32FC3, 1.0 / 255.0)
+                smoothMask.release()
+
+                val res32F = Mat()
+                val cand32F = Mat()
+                resultMat.convertTo(res32F, CvType.CV_32FC3)
+                candMat.convertTo(cand32F, CvType.CV_32FC3)
+
+                val onesMat = Mat(mask32F.size(), CvType.CV_32FC3, Scalar(1.0, 1.0, 1.0))
+                val invMask = Mat()
+                Core.subtract(onesMat, mask32F, invMask)
+                onesMat.release()
+
+                val resPart = Mat()
+                val candPart = Mat()
+                Core.multiply(res32F, invMask, resPart)
+                invMask.release()
+                res32F.release()
+
+                Core.multiply(cand32F, mask32F, candPart)
+                mask32F.release()
+                cand32F.release()
+
+                val blended = Mat()
+                Core.add(resPart, candPart, blended)
+                resPart.release()
+                candPart.release()
+
+                blended.convertTo(resultMat, CvType.CV_8UC3)
+                blended.release()
+
+                val notAvailable = Mat()
+                Core.bitwise_not(availableMask, notAvailable)
+                val newUnresolved = Mat()
+                Core.bitwise_and(unresolvedMask, notAvailable, newUnresolved)
+                unresolvedMask.release()
+                unresolvedMask = newUnresolved
+                notAvailable.release()
+            }
+
+            availableMask.release()
+            candMat.release()
+        }
+
+        // Only inpaint pixels that were never visible in ANY frame across the sequence
+        if (Core.countNonZero(unresolvedMask) > 0) {
+            try {
+                Photo.inpaint(resultMat, unresolvedMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+            } catch (_: Exception) {}
+        }
+        unresolvedMask.release()
+
+        return saveMatAsJpeg(resultMat, dstPath)
+    }
+
+    private fun saveMatAsJpeg(bgrMat: Mat, dstPath: String): Boolean {
+        val outRgba = Mat()
+        Imgproc.cvtColor(bgrMat, outRgba, Imgproc.COLOR_BGR2RGBA)
+        val outBitmap = Bitmap.createBitmap(outRgba.cols(), outRgba.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(outRgba, outBitmap)
+        outRgba.release()
+        bgrMat.release()
+
+        val file = File(dstPath)
+        file.parentFile?.mkdirs()
+        FileOutputStream(file).use { out ->
+            outBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        outBitmap.recycle()
         return true
     }
 
