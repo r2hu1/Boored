@@ -21,7 +21,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
-  bool _isSearching = false;
 
   @override
   void dispose() {
@@ -30,9 +29,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _closeSearch() {
-    setState(() => _isSearching = false);
     _searchController.clear();
     ref.read(notesNotifierProvider.notifier).clearSearch();
+    setState(() {});
   }
 
   @override
@@ -42,156 +41,170 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final user = ref.watch(authNotifierProvider).user;
     final notesState = ref.watch(notesNotifierProvider);
     final foldersState = ref.watch(foldersNotifierProvider);
+    final isSearching = _searchController.text.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search notes...',
-                  border: InputBorder.none,
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 20),
-                          onPressed: () {
-                            _searchController.clear();
-                            ref
-                                .read(notesNotifierProvider.notifier)
-                                .clearSearch();
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                ),
-                onChanged: (query) {
-                  ref.read(notesNotifierProvider.notifier).search(query);
-                  setState(() {});
-                },
-              )
-            : const Text('Boored', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Boored', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: false,
-        leading: _isSearching
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _closeSearch,
-              )
-            : null,
         actions: [
-          if (!_isSearching) ...[
-            Consumer(
-              builder: (ctx, ref, _) {
-                final syncState = ref.watch(syncNotifierProvider);
-                if (syncState.status == SyncStatus.syncing) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+          Consumer(
+            builder: (ctx, ref, _) {
+              final syncState = ref.watch(syncNotifierProvider);
+              if (syncState.status == SyncStatus.syncing) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  );
-                }
-                return IconButton(
-                  icon: Badge(
-                    isLabelVisible: syncState.pendingCount > 0,
-                    label: Text('${syncState.pendingCount}'),
-                    child: const Icon(Icons.sync),
                   ),
-                  tooltip: 'Sync changes',
-                  onPressed: () {
-                    ref.read(syncNotifierProvider.notifier).syncNow();
-                  },
                 );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: 'Search notes',
-              onPressed: () => setState(() => _isSearching = true),
-            ),
-            if (user != null)
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'settings') {
-                    context.push('/settings');
-                  } else if (value == 'sign_out') {
-                    ref.read(authNotifierProvider.notifier).signOut();
-                  }
+              }
+              return IconButton(
+                icon: Badge(
+                  isLabelVisible: syncState.pendingCount > 0,
+                  label: Text('${syncState.pendingCount}'),
+                  child: const Icon(Icons.sync),
+                ),
+                tooltip: 'Sync changes',
+                onPressed: () {
+                  ref.read(syncNotifierProvider.notifier).syncNow();
                 },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    enabled: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(user.name, style: theme.textTheme.titleSmall),
-                        Text(user.email, style: theme.textTheme.bodySmall),
-                      ],
-                    ),
+              );
+            },
+          ),
+          if (user != null)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'settings') {
+                  context.push('/settings');
+                } else if (value == 'sign_out') {
+                  ref.read(authNotifierProvider.notifier).signOut();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.name, style: theme.textTheme.titleSmall),
+                      Text(user.email, style: theme.textTheme.bodySmall),
+                    ],
                   ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        Icon(Icons.settings, size: 20),
-                        SizedBox(width: 8),
-                        Text('Settings'),
-                      ],
-                    ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings, size: 20),
+                      SizedBox(width: 8),
+                      Text('Settings'),
+                    ],
                   ),
-                  const PopupMenuItem(
-                    value: 'sign_out',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout, size: 20),
-                        SizedBox(width: 8),
-                        Text('Sign out'),
-                      ],
-                    ),
+                ),
+                const PopupMenuItem(
+                  value: 'sign_out',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20),
+                      SizedBox(width: 8),
+                      Text('Sign out'),
+                    ],
                   ),
-                ],
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: user.avatarUrl != null
-                      ? CircleAvatar(
-                          radius: 16,
-                          backgroundImage: NetworkImage(user.avatarUrl!),
-                        )
-                      : CircleAvatar(
-                          radius: 16,
-                          backgroundColor: colors.primaryContainer,
-                          child: Text(
-                            user.name.isNotEmpty
-                                ? user.name[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              color: colors.onPrimaryContainer,
-                              fontWeight: FontWeight.w600,
-                            ),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: user.avatarUrl != null
+                    ? CircleAvatar(
+                        radius: 16,
+                        backgroundImage: NetworkImage(user.avatarUrl!),
+                      )
+                    : CircleAvatar(
+                        radius: 16,
+                        backgroundColor: colors.primaryContainer,
+                        child: Text(
+                          user.name.isNotEmpty
+                              ? user.name[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: colors.onPrimaryContainer,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                ),
+                      ),
               ),
-          ],
+            ),
         ],
       ),
       body: PopScope(
-        canPop: !_isSearching,
+        canPop: !isSearching,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && _isSearching) {
+          if (!didPop && isSearching) {
             _closeSearch();
           }
         },
         child: CustomScrollView(
           slivers: [
+            // Search Bar above folders section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search notes...',
+                      hintStyle: TextStyle(
+                        color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: colors.onSurfaceVariant,
+                        size: 22,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear_rounded,
+                                color: colors.onSurfaceVariant,
+                                size: 20,
+                              ),
+                              onPressed: _closeSearch,
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    onChanged: (query) {
+                      ref.read(notesNotifierProvider.notifier).search(query);
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ),
+            ),
+
             // 1. Folders Section (Only when not searching)
-            if (!_isSearching) ...[
+            if (!isSearching) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
