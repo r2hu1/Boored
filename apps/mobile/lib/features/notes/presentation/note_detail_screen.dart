@@ -235,6 +235,94 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
     }
   }
 
+  Future<void> _regenerateAll() async {
+    await _runFinalPass();
+    if (mounted) await _removeProfessor();
+    if (mounted) await _extractTextAndMakeDigitalCopy();
+  }
+
+  void _showRegenerateOptionsSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E2433) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.refresh,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Regenerate Options',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.picture_as_pdf_outlined),
+                  title: const Text('Document PDF'),
+                  subtitle: const Text('Rebuild whiteboard pages & standard PDF'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runFinalPass();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person_off_outlined),
+                  title: const Text('Remove Professor (Clean PDF)'),
+                  subtitle: const Text('Erase lecturer/objects & generate Clean PDF'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeProfessor();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('Digital Copy (OCR)'),
+                  subtitle: const Text('Extract handwriting & make searchable notes'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _extractTextAndMakeDigitalCopy();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome_outlined),
+                  title: const Text('Regenerate All'),
+                  subtitle: const Text('Run complete pipeline across all versions'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _regenerateAll();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final noteAsync = ref.watch(_noteProvider(widget.noteId));
@@ -357,8 +445,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
               else
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Process / Generate PDF',
-                  onPressed: _runFinalPass,
+                  tooltip: 'Regenerate Options',
+                  onPressed: _showRegenerateOptionsSheet,
                 ),
               IconButton(
                 icon: const Icon(Icons.videocam_outlined),

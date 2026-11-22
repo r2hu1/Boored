@@ -21,30 +21,13 @@ class LecturerRemovalProcessor {
       masks[path] = await segmenter.processImage(path);
     }
 
-    // Step 1: Find the best clean frame (first frame without person)
+    // Step 1: Find any completely clean frame (frame without person)
     for (final path in keyframePaths) {
       final mask = masks[path];
       if (mask == null || !mask.hasPerson) {
         latestCleanFrame = path;
         break;
       }
-    }
-
-    // Fallback: If ALL frames have a person, pick the frame with least person coverage
-    if (latestCleanFrame == null && keyframePaths.isNotEmpty) {
-      String bestPath = keyframePaths.first;
-      int minPersonPixels = 999999999;
-      for (final path in keyframePaths) {
-        final mask = masks[path];
-        if (mask != null) {
-          final count = mask.confidences.where((c) => c > 0.25).length;
-          if (count < minPersonPixels) {
-            minPersonPixels = count;
-            bestPath = path;
-          }
-        }
-      }
-      latestCleanFrame = bestPath;
     }
 
     for (int i = 0; i < keyframePaths.length; i++) {
@@ -55,25 +38,56 @@ class LecturerRemovalProcessor {
         latestCleanFrame = path;
         cleanOutputs.add(path);
       } else {
-        // Find best reference frame: prefer latestCleanFrame, otherwise search any frame where person was in a different spot
         String? referenceFrame = (latestCleanFrame != null && latestCleanFrame != path)
             ? latestCleanFrame
             : null;
 
-        if (referenceFrame == null) {
+        // If no completely clean frame exists, find the candidate with minimum person overlap
+        if (referenceFrame == null && keyframePaths.length > 1) {
+          int minOverlap = 999999999;
+          String? bestCandidate;
+          int currPersonPixels = 0;
+          for (final c in mask.confidences) {
+            if (c > 0.15) currPersonPixels++;
+          }
+
           for (final candidate in keyframePaths) {
-            if (candidate != path) {
-              referenceFrame = candidate;
+            if (candidate == path) continue;
+            final candMask = masks[candidate];
+            if (candMask == null || !candMask.hasPerson) {
+              bestCandidate = candidate;
+              minOverlap = 0;
               break;
             }
+
+            int overlap = 0;
+            final limit = mask.confidences.length < candMask.confidences.length
+                ? mask.confidences.length
+                : candMask.confidences.length;
+            for (int k = 0; k < limit; k++) {
+              if (mask.confidences[k] > 0.15 && candMask.confidences[k] > 0.15) {
+                overlap++;
+              }
+            }
+
+            if (overlap < minOverlap) {
+              minOverlap = overlap;
+              bestCandidate = candidate;
+            }
+          }
+
+          // Only use the candidate if overlap is low (<40% of person)
+          // Otherwise, inpainting the original frame produces much cleaner whiteboard without ghost limbs
+          if (bestCandidate != null && (currPersonPixels == 0 || minOverlap < currPersonPixels * 0.4)) {
+            referenceFrame = bestCandidate;
           }
         }
 
-        // If no separate clean reference frame exists, refPath is path itself,
-        // which triggers native Telea inpainting on the whiteboard occlusion mask
         final refPath = (referenceFrame != null && referenceFrame != path)
             ? referenceFrame
             : path;
+
+        final refMask = masks[refPath];
 
         final compositedPath = path.replaceAll('.jpg', '_deoccluded_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
         final success = await openCVService.compositeUnoccluded(
@@ -83,6 +97,9 @@ class LecturerRemovalProcessor {
           maskConfidences: mask.confidences,
           maskWidth: mask.width,
           maskHeight: mask.height,
+          bgMaskConfidences: refMask?.confidences,
+          bgMaskWidth: refMask?.width,
+          bgMaskHeight: refMask?.height,
         );
 
         if (success != null && File(compositedPath).existsSync()) {

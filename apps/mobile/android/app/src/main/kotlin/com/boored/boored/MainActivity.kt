@@ -299,6 +299,9 @@ class MainActivity : FlutterActivity() {
         val rawConfidences = call.argument<List<*>>("maskConfidences")
         val maskWidth = call.argument<Int>("maskWidth")
         val maskHeight = call.argument<Int>("maskHeight")
+        val bgRawConfidences = call.argument<List<*>>("bgMaskConfidences")
+        val bgMaskWidth = call.argument<Int>("bgMaskWidth")
+        val bgMaskHeight = call.argument<Int>("bgMaskHeight")
 
         if (currentPath == null || cleanBackgroundPath == null || dstPath == null ||
             rawConfidences == null || maskWidth == null || maskHeight == null) {
@@ -308,6 +311,7 @@ class MainActivity : FlutterActivity() {
 
         // Safely cast every element — Flutter MethodChannel may send mixed number types
         val maskConfidences = rawConfidences.map { (it as Number).toDouble() }
+        val bgMaskConfidences = bgRawConfidences?.map { (it as Number).toDouble() }
 
         scope.launch {
             try {
@@ -317,7 +321,10 @@ class MainActivity : FlutterActivity() {
                     dstPath,
                     maskConfidences,
                     maskWidth,
-                    maskHeight
+                    maskHeight,
+                    bgMaskConfidences,
+                    bgMaskWidth,
+                    bgMaskHeight
                 )
                 withContext(Dispatchers.Main) {
                     if (success) {
@@ -748,7 +755,10 @@ class MainActivity : FlutterActivity() {
         dstPath: String,
         maskConfidences: List<Double>,
         maskWidth: Int,
-        maskHeight: Int
+        maskHeight: Int,
+        bgMaskConfidences: List<Double>? = null,
+        bgMaskWidth: Int? = null,
+        bgMaskHeight: Int? = null
     ): Boolean {
         val currBmp = decodeBitmapWithOrientation(currentPath) ?: return false
         val bgBmp = decodeBitmapWithOrientation(cleanBackgroundPath) ?: return false
@@ -772,82 +782,126 @@ class MainActivity : FlutterActivity() {
             Imgproc.resize(bgMat, bgMat, currMat.size())
         }
 
-        // Build binary person mask from confidence array with 0.25 distance-tuned threshold
-        val maskByteArray = ByteArray(maskWidth * maskHeight)
-        for (i in 0 until minOf(maskConfidences.size, maskByteArray.size)) {
-            maskByteArray[i] = if ((maskConfidences[i] as Number).toDouble() > 0.25) 255.toByte() else 0.toByte()
+        // Helper to build dilated & vertically-closed mask from confidences
+        fun buildProcessedMask(confidences: List<Double>, mWidth: Int, mHeight: Int): Mat {
+            val maskByteArray = ByteArray(mWidth * mHeight)
+            for (i in 0 until minOf(confidences.size, maskByteArray.size)) {
+                // Low threshold 0.15 captures legs, waist, arms, loose clothing, hair, gestures
+                maskByteArray[i] = if (confidences[i] > 0.15) 255.toByte() else 0.toByte()
+            }
+            val rawMat = Mat(mHeight, mWidth, CvType.CV_8UC1)
+            rawMat.put(0, 0, maskByteArray)
+
+            val fullMat = Mat()
+            Imgproc.resize(rawMat, fullMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
+            rawMat.release()
+
+            // Morphological vertical CLOSE to connect torso, legs, and feet
+            val closeKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(25.0, 55.0))
+            Imgproc.morphologyEx(fullMat, fullMat, Imgproc.MORPH_CLOSE, closeKernel)
+            closeKernel.release()
+
+            // Morphological DILATE to swallow clothing edges, hair, and lecturer shadows on whiteboard
+            val dilateKernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(29.0, 29.0))
+            val dilatedMat = Mat()
+            Imgproc.dilate(fullMat, dilatedMat, dilateKernel)
+            dilateKernel.release()
+            fullMat.release()
+
+            return dilatedMat
         }
 
-        val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)
-        rawMaskMat.put(0, 0, maskByteArray)
-
-        val fullMaskMat = Mat()
-        Imgproc.resize(rawMaskMat, fullMaskMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
-
-        // Morphological dilation to expand boundary slightly (covers clothes fringes, hair, gestures)
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(15.0, 15.0))
-        val dilatedMask = Mat()
-        Imgproc.dilate(fullMaskMat, dilatedMask, kernel)
-
+        val currMask = buildProcessedMask(maskConfidences, maskWidth, maskHeight)
         val resultMat = Mat()
         val isSameFrame = (currentPath == cleanBackgroundPath)
-        val nonZeroCount = Core.countNonZero(dilatedMask)
 
-        if (nonZeroCount == 0) {
+        val nonZeroCurr = Core.countNonZero(currMask)
+        if (nonZeroCurr == 0) {
             currMat.copyTo(resultMat)
-        } else if (isSameFrame) {
+        } else if (isSameFrame || bgMaskConfidences == null || bgMaskWidth == null || bgMaskHeight == null) {
             // Whiteboard inpainting: Telea algorithm fills occluded area with whiteboard texture/color
             try {
-                Photo.inpaint(currMat, dilatedMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+                Photo.inpaint(currMat, currMask, resultMat, 7.0, Photo.INPAINT_TELEA)
             } catch (e: Exception) {
                 currMat.copyTo(resultMat)
             }
         } else {
-            // Convert grayscale dilated mask to 3-channel BGR
-            val maskBgr = Mat()
-            Imgproc.cvtColor(dilatedMask, maskBgr, Imgproc.COLOR_GRAY2BGR)
+            val bgMask = buildProcessedMask(bgMaskConfidences, bgMaskWidth, bgMaskHeight)
 
-            // Soft Gaussian blur on the mask for seamless alpha blending without hard cutout edges
-            val smoothMask = Mat()
-            Imgproc.GaussianBlur(maskBgr, smoothMask, Size(21.0, 21.0), 0.0)
-            maskBgr.release()
+            // cleanBgMask: Pixels where CURRENT is occluded, but BACKGROUND is clean whiteboard
+            val bgInv = Mat()
+            Core.bitwise_not(bgMask, bgInv)
+            val cleanBgMask = Mat()
+            Core.bitwise_and(currMask, bgInv, cleanBgMask)
+            bgInv.release()
 
-            val mask32F = Mat()
-            smoothMask.convertTo(mask32F, CvType.CV_32FC3, 1.0 / 255.0)
-            smoothMask.release()
+            // overlapMask: Pixels where BOTH frames had a person (cannot copy from bg!)
+            val overlapMask = Mat()
+            Core.bitwise_and(currMask, bgMask, overlapMask)
+            bgMask.release()
 
-            // Both currMat and bgMat are 3-channel (CV_8UC3), converting to CV_32FC3 gives CV_32FC3
-            val curr32F = Mat()
-            val bg32F = Mat()
-            currMat.convertTo(curr32F, CvType.CV_32FC3)
-            bgMat.convertTo(bg32F, CvType.CV_32FC3)
+            val nonZeroCleanBg = Core.countNonZero(cleanBgMask)
+            val tempBlended = Mat()
 
-            // currPart = curr32F * (1.0 - mask)
-            val onesMat = Mat(mask32F.size(), CvType.CV_32FC3, Scalar(1.0, 1.0, 1.0))
-            val invMask = Mat()
-            Core.subtract(onesMat, mask32F, invMask)
-            onesMat.release()
+            if (nonZeroCleanBg > 0) {
+                // Convert cleanBgMask to 3-channel float with soft Gaussian blur for smooth blending
+                val maskBgr = Mat()
+                Imgproc.cvtColor(cleanBgMask, maskBgr, Imgproc.COLOR_GRAY2BGR)
+                val smoothMask = Mat()
+                Imgproc.GaussianBlur(maskBgr, smoothMask, Size(17.0, 17.0), 0.0)
+                maskBgr.release()
 
-            val currPart = Mat()
-            Core.multiply(curr32F, invMask, currPart)
-            invMask.release()
-            curr32F.release()
+                val mask32F = Mat()
+                smoothMask.convertTo(mask32F, CvType.CV_32FC3, 1.0 / 255.0)
+                smoothMask.release()
 
-            // bgPart = bg32F * mask
-            val bgPart = Mat()
-            Core.multiply(bg32F, mask32F, bgPart)
-            mask32F.release()
-            bg32F.release()
+                val curr32F = Mat()
+                val bg32F = Mat()
+                currMat.convertTo(curr32F, CvType.CV_32FC3)
+                bgMat.convertTo(bg32F, CvType.CV_32FC3)
 
-            // blended = currPart + bgPart
-            val blended32F = Mat()
-            Core.add(currPart, bgPart, blended32F)
-            currPart.release()
-            bgPart.release()
+                val onesMat = Mat(mask32F.size(), CvType.CV_32FC3, Scalar(1.0, 1.0, 1.0))
+                val invMask = Mat()
+                Core.subtract(onesMat, mask32F, invMask)
+                onesMat.release()
 
-            blended32F.convertTo(resultMat, CvType.CV_8UC3)
-            blended32F.release()
+                val currPart = Mat()
+                Core.multiply(curr32F, invMask, currPart)
+                invMask.release()
+                curr32F.release()
+
+                val bgPart = Mat()
+                Core.multiply(bg32F, mask32F, bgPart)
+                mask32F.release()
+                bg32F.release()
+
+                val blended32F = Mat()
+                Core.add(currPart, bgPart, blended32F)
+                currPart.release()
+                bgPart.release()
+
+                blended32F.convertTo(tempBlended, CvType.CV_8UC3)
+                blended32F.release()
+            } else {
+                currMat.copyTo(tempBlended)
+            }
+            cleanBgMask.release()
+
+            // If there were overlapping regions where BOTH frames had the person, inpaint those pixels
+            if (Core.countNonZero(overlapMask) > 0) {
+                try {
+                    Photo.inpaint(tempBlended, overlapMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+                } catch (e: Exception) {
+                    tempBlended.copyTo(resultMat)
+                }
+            } else {
+                tempBlended.copyTo(resultMat)
+            }
+            tempBlended.release()
+            overlapMask.release()
         }
+
+        currMask.release()
 
         val outRgba = Mat()
         Imgproc.cvtColor(resultMat, outRgba, Imgproc.COLOR_BGR2RGBA)
@@ -864,10 +918,6 @@ class MainActivity : FlutterActivity() {
         outBitmap.recycle()
         currMat.release()
         bgMat.release()
-        rawMaskMat.release()
-        fullMaskMat.release()
-        kernel.release()
-        dilatedMask.release()
         resultMat.release()
         outRgba.release()
 

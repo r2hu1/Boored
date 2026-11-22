@@ -119,6 +119,9 @@ class OpenCVService {
     required List<double> maskConfidences,
     required int maskWidth,
     required int maskHeight,
+    List<double>? bgMaskConfidences,
+    int? bgMaskWidth,
+    int? bgMaskHeight,
   }) async {
     try {
       final result = await _channel.invokeMethod<String>(
@@ -130,6 +133,9 @@ class OpenCVService {
           'maskConfidences': maskConfidences,
           'maskWidth': maskWidth,
           'maskHeight': maskHeight,
+          'bgMaskConfidences': bgMaskConfidences,
+          'bgMaskWidth': bgMaskWidth,
+          'bgMaskHeight': bgMaskHeight,
         },
       );
       return result;
