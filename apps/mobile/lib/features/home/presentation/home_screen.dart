@@ -152,53 +152,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
         child: CustomScrollView(
           slivers: [
-            // Search Bar above folders section
+            // Official Material 3 SearchBar above folders section
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colors.outlineVariant.withValues(alpha: 0.35),
-                      width: 1,
-                    ),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SearchBar(
+                  controller: _searchController,
+                  hintText: 'Search notes...',
+                  leading: const Icon(Icons.search),
+                  trailing: [
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: _closeSearch,
+                      ),
+                  ],
+                  elevation: const WidgetStatePropertyAll<double>(0),
+                  backgroundColor: WidgetStatePropertyAll<Color>(
+                    colors.surfaceContainerHigh,
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search notes...',
-                      hintStyle: TextStyle(
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                        fontSize: 14,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: colors.onSurfaceVariant,
-                        size: 22,
-                      ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(
-                                Icons.clear_rounded,
-                                color: colors.onSurfaceVariant,
-                                size: 20,
-                              ),
-                              onPressed: _closeSearch,
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onChanged: (query) {
-                      ref.read(notesNotifierProvider.notifier).search(query);
-                      setState(() {});
-                    },
-                  ),
+                  onChanged: (query) {
+                    ref.read(notesNotifierProvider.notifier).search(query);
+                    setState(() {});
+                  },
                 ),
               ),
             ),
