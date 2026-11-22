@@ -217,78 +217,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 186,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: foldersState.folders.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      // First item is "+ New Folder" action card
-                      if (index == 0) {
-                        return Material(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(18),
-                          child: InkWell(
-                            onTap: () => _createFolder(context),
-                            borderRadius: BorderRadius.circular(18),
-                            child: Container(
-                              width: 130,
-                              height: 180,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: colors.outlineVariant.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: colors.primaryContainer,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.create_new_folder_outlined,
-                                      size: 24,
-                                      color: colors.onPrimaryContainer,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'New Folder',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: colors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+              if (foldersState.folders.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 186,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: foldersState.folders.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final folder = foldersState.folders[index];
+                        return FolderCard(
+                          folder: folder,
+                          onTap: () => context.push('/folders/${folder.id}'),
+                          onEdit: () => _editFolder(context, folder),
+                          onDelete: () => _deleteFolder(context, folder),
                         );
-                      }
-
-                      final folder = foldersState.folders[index - 1];
-                      return FolderCard(
-                        folder: folder,
-                        onTap: () => context.push('/folders/${folder.id}'),
-                        onEdit: () => _editFolder(context, folder),
-                        onDelete: () => _deleteFolder(context, folder),
-                      );
-                    },
+                      },
+                    ),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 16),
-              ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 16),
+                ),
+              ],
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
