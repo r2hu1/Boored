@@ -23,16 +23,16 @@ class FolderCard extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final noteCountAsync = ref.watch(folderNoteCountProvider(folder.id));
 
-    const cardWidth = 148.0;
-    const cardHeight = 162.0;
-    const tabHeight = 22.0;
-    const frontPocketTop = 40.0;
+    const cardWidth = 128.0;
+    const cardHeight = 140.0;
+    const tabHeight = 18.0;
+    const frontPocketTop = 34.0;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: SizedBox(
           width: cardWidth,
           height: cardHeight,
@@ -49,20 +49,20 @@ class FolderCard extends ConsumerWidget {
 
               // 2. Paper Sheet Peeking Out from the Folder
               Positioned(
-                left: 10,
-                right: 10,
-                top: tabHeight + 7,
-                height: 36,
+                left: 8,
+                right: 8,
+                top: tabHeight + 5,
+                height: 30,
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerLowest,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(7),
+                      top: Radius.circular(6),
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 4,
+                        blurRadius: 3,
                         offset: const Offset(0, 1),
                       ),
                     ],
@@ -86,16 +86,16 @@ class FolderCard extends ConsumerWidget {
                         colors.primary.withValues(alpha: 0.92),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(10, 10, 8, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -115,18 +115,18 @@ class FolderCard extends ConsumerWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: colors.onPrimary,
-                                    fontSize: 15.5,
+                                    fontSize: 14.0,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 1),
                                 noteCountAsync.when(
                                   data: (count) => Text(
                                     count == 1 ? '1 note' : '$count notes',
                                     style: TextStyle(
                                       color: colors.onPrimary.withValues(alpha: 0.85),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w400,
                                     ),
                                   ),
@@ -134,7 +134,7 @@ class FolderCard extends ConsumerWidget {
                                     '···',
                                     style: TextStyle(
                                       color: colors.onPrimary.withValues(alpha: 0.85),
-                                      fontSize: 12,
+                                      fontSize: 11,
                                     ),
                                   ),
                                   error: (_, _) => const SizedBox.shrink(),
@@ -143,23 +143,23 @@ class FolderCard extends ConsumerWidget {
                             ),
                           ),
 
-                          // Three-Dot Action Pill Button (matches the reference image)
+                          // Three-Dot Action Pill Button
                           if (onEdit != null || onDelete != null)
                             Container(
-                              width: 26,
-                              height: 26,
+                              width: 24,
+                              height: 24,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: colors.onPrimary.withValues(alpha: 0.5),
-                                  width: 1.1,
+                                  width: 1.0,
                                 ),
                               ),
                               child: PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
                                 icon: Icon(
                                   Icons.more_horiz_rounded,
-                                  size: 15,
+                                  size: 14,
                                   color: colors.onPrimary,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -231,9 +231,9 @@ class _FolderBackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    const r = 16.0; // corner radius (-10%)
+    const r = 14.0; // corner radius
     final tabW = w * 0.44; // tab width ~44%
-    const tabH = 22.0; // shoulder height offset (-10%)
+    const tabH = 18.0; // shoulder height offset
 
     final path = Path();
     // Start at bottom-left
@@ -243,13 +243,13 @@ class _FolderBackPainter extends CustomPainter {
     path.quadraticBezierTo(0, 0, r, 0); // Tab top-left curve
 
     // Tab top horizontal edge
-    path.lineTo(tabW - 10, 0);
+    path.lineTo(tabW - 8, 0);
 
     // Smooth curved slope down to the right shoulder
     path.cubicTo(
       tabW + 2, 0,
       tabW + 2, tabH,
-      tabW + 16, tabH,
+      tabW + 14, tabH,
     );
 
     // Right shoulder horizontal edge

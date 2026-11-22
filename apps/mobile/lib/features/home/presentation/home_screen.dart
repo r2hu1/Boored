@@ -298,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   if (foldersState.folders.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 168,
+                        height: 146,
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           scrollDirection: Axis.horizontal,
@@ -321,7 +321,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ] else ...[
                     SliverToBoxAdapter(
                       child: SizedBox(
-                        height: 168,
+                        height: 146,
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           scrollDirection: Axis.horizontal,
@@ -721,16 +721,16 @@ class _CreateFolderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    const cardWidth = 148.0;
-    const cardHeight = 162.0;
-    const tabHeight = 22.0;
-    const frontPocketTop = 40.0;
+    const cardWidth = 128.0;
+    const cardHeight = 140.0;
+    const tabHeight = 18.0;
+    const frontPocketTop = 34.0;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: SizedBox(
           width: cardWidth,
           height: cardHeight,
@@ -747,20 +747,20 @@ class _CreateFolderCard extends StatelessWidget {
 
               // 2. Paper Sheet Peeking Out
               Positioned(
-                left: 10,
-                right: 10,
-                top: tabHeight + 7,
-                height: 36,
+                left: 8,
+                right: 8,
+                top: tabHeight + 5,
+                height: 30,
                 child: Container(
                   decoration: BoxDecoration(
                     color: colors.surfaceContainerLowest,
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(7),
+                      top: Radius.circular(6),
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4,
+                        blurRadius: 3,
                         offset: const Offset(0, 1),
                       ),
                     ],
@@ -784,20 +784,20 @@ class _CreateFolderCard extends StatelessWidget {
                         colors.primaryContainer.withValues(alpha: 0.88),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: colors.primary.withValues(alpha: 0.2),
-                      width: 1.2,
+                      width: 1.0,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(10, 10, 8, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -815,18 +815,18 @@ class _CreateFolderCard extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: colors.onPrimaryContainer,
-                                    fontSize: 15.5,
+                                    fontSize: 14.0,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.2,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 1),
                                 Text(
                                   'Create folder',
                                   style: TextStyle(
                                     color: colors.onPrimaryContainer
                                         .withValues(alpha: 0.75),
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w400,
                                   ),
                                 ),
@@ -834,15 +834,15 @@ class _CreateFolderCard extends StatelessWidget {
                             ),
                           ),
                           Container(
-                            width: 26,
-                            height: 26,
+                            width: 24,
+                            height: 24,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: colors.primary.withValues(alpha: 0.15),
                             ),
                             child: Icon(
                               Icons.add_rounded,
-                              size: 16,
+                              size: 15,
                               color: colors.primary,
                             ),
                           ),
@@ -855,7 +855,7 @@ class _CreateFolderCard extends StatelessWidget {
                         style: TextStyle(
                           color: colors.onPrimaryContainer
                               .withValues(alpha: 0.72),
-                          fontSize: 10.5,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -880,16 +880,16 @@ class _CreateFolderBackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    const r = 16.0;
+    const r = 14.0;
     final tabW = w * 0.44;
-    const tabH = 22.0;
+    const tabH = 18.0;
 
     final path = Path();
     path.moveTo(0, h - r);
     path.lineTo(0, r);
     path.quadraticBezierTo(0, 0, r, 0);
-    path.lineTo(tabW - 10, 0);
-    path.cubicTo(tabW + 2, 0, tabW + 2, tabH, tabW + 16, tabH);
+    path.lineTo(tabW - 8, 0);
+    path.cubicTo(tabW + 2, 0, tabW + 2, tabH, tabW + 14, tabH);
     path.lineTo(w - r, tabH);
     path.quadraticBezierTo(w, tabH, w, tabH + r);
     path.lineTo(w, h - r);

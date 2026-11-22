@@ -26,14 +26,14 @@ void main() {
     expect(find.byType(FloatingActionButton), findsOneWidget);
 
     // Verify New Folder card is rendered only when no folder is there,
-    // and has folder card width (148) instead of stretching across the screen
+    // and has folder card width (128) instead of stretching across the screen
     expect(find.text('New Folder'), findsOneWidget);
     final createFolderInkWell = find.ancestor(
       of: find.text('New Folder'),
       matching: find.byType(InkWell),
     );
     final cardSize = tester.getSize(createFolderInkWell.first);
-    expect(cardSize.width, equals(148.0));
+    expect(cardSize.width, equals(128.0));
 
     await db.close();
   });
