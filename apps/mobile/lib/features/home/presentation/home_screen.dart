@@ -19,12 +19,32 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
+  late final AnimationController _fabAnimationController;
+  late final Animation<double> _expandAnimation;
+  bool _isFabOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fabAnimationController = AnimationController(
+      value: 0.0,
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _expandAnimation = CurvedAnimation(
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+      parent: _fabAnimationController,
+    );
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _fabAnimationController.dispose();
     super.dispose();
   }
 
@@ -32,6 +52,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _searchController.clear();
     ref.read(notesNotifierProvider.notifier).clearSearch();
     setState(() {});
+  }
+
+  void _toggleFab() {
+    setState(() {
+      _isFabOpen = !_isFabOpen;
+      if (_isFabOpen) {
+        _fabAnimationController.forward();
+      } else {
+        _fabAnimationController.reverse();
+      }
+    });
+  }
+
+  void _closeFab() {
+    if (_isFabOpen) {
+      setState(() {
+        _isFabOpen = false;
+        _fabAnimationController.reverse();
+      });
+    }
   }
 
   @override
@@ -144,119 +184,264 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: PopScope(
-        canPop: !isSearching,
+        canPop: !isSearching && !_isFabOpen,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && isSearching) {
+          if (didPop) return;
+          if (_isFabOpen) {
+            _closeFab();
+          } else if (isSearching) {
             _closeSearch();
           }
         },
-        child: CustomScrollView(
-          slivers: [
-            // Official Material 3 SearchBar above folders section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: SearchBar(
-                  controller: _searchController,
-                  hintText: 'Search notes...',
-                  leading: const Icon(Icons.search),
-                  trailing: [
-                    if (_searchController.text.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: _closeSearch,
+        child: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // Official Material 3 SearchBar above folders section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: SearchBar(
+                      controller: _searchController,
+                      hintText: 'Search notes...',
+                      leading: const Icon(Icons.search),
+                      trailing: [
+                        if (_searchController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: _closeSearch,
+                          ),
+                      ],
+                      elevation: const WidgetStatePropertyAll<double>(0),
+                      backgroundColor: WidgetStatePropertyAll<Color>(
+                        colors.surfaceContainerHigh,
                       ),
-                  ],
-                  elevation: const WidgetStatePropertyAll<double>(0),
-                  backgroundColor: WidgetStatePropertyAll<Color>(
-                    colors.surfaceContainerHigh,
+                      onChanged: (query) {
+                        ref.read(notesNotifierProvider.notifier).search(query);
+                        setState(() {});
+                      },
+                    ),
                   ),
-                  onChanged: (query) {
-                    ref.read(notesNotifierProvider.notifier).search(query);
-                    setState(() {});
-                  },
                 ),
-              ),
-            ),
 
-            // 1. Folders Section (Only when not searching)
-            if (!isSearching) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
+                // 1. Folders Section (Only when not searching)
+                if (!isSearching) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Text(
                         'Folders',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      TextButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('New Folder'),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => _createFolder(context),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (foldersState.folders.isNotEmpty) ...[
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 186,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: foldersState.folders.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final folder = foldersState.folders[index];
-                        return FolderCard(
-                          folder: folder,
-                          onTap: () => context.push('/folders/${folder.id}'),
-                          onEdit: () => _editFolder(context, folder),
-                          onDelete: () => _deleteFolder(context, folder),
-                        );
-                      },
                     ),
                   ),
-                ),
+                  if (foldersState.folders.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 186,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: foldersState.folders.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final folder = foldersState.folders[index];
+                            return FolderCard(
+                              folder: folder,
+                              onTap: () => context.push('/folders/${folder.id}'),
+                              onEdit: () => _editFolder(context, folder),
+                              onDelete: () => _deleteFolder(context, folder),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 16),
+                    ),
+                  ],
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Text(
+                        'All Notes',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // 2. Notes Section
+                _buildNotesList(context, notesState, theme, colors),
+
+                // Bottom padding for FAB
                 const SliverToBoxAdapter(
-                  child: SizedBox(height: 16),
+                  child: SizedBox(height: 88),
                 ),
               ],
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Text(
-                    'All Notes',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            ),
+            if (_isFabOpen)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _closeFab,
+                  child: FadeTransition(
+                    opacity: _expandAnimation,
+                    child: ColoredBox(
+                      color: colors.scrim.withValues(alpha: 0.32),
                     ),
                   ),
                 ),
               ),
-            ],
-
-            // 2. Notes Section
-            _buildNotesList(context, notesState, theme, colors),
-
-            // Bottom padding for FAB
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 88),
-            ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showNewNoteOptions(context),
-        child: const Icon(Icons.add),
+      floatingActionButton: _buildSpeedDial(context, theme, colors),
+    );
+  }
+
+  Widget _buildSpeedDial(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colors,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnimatedBuilder(
+          animation: _expandAnimation,
+          builder: (context, child) {
+            if (_expandAnimation.value == 0.0) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildSpeedDialItem(
+                  context: context,
+                  theme: theme,
+                  colors: colors,
+                  label: 'New Folder',
+                  icon: Icons.create_new_folder_rounded,
+                  heroTag: 'fab_new_folder',
+                  color: colors.tertiaryContainer,
+                  iconColor: colors.onTertiaryContainer,
+                  onTap: () => _createFolder(context),
+                  delayFraction: 0.3,
+                ),
+                const SizedBox(height: 12),
+                _buildSpeedDialItem(
+                  context: context,
+                  theme: theme,
+                  colors: colors,
+                  label: 'Upload Video',
+                  icon: Icons.upload_file_rounded,
+                  heroTag: 'fab_upload_video',
+                  color: colors.secondaryContainer,
+                  iconColor: colors.onSecondaryContainer,
+                  onTap: () => _createAndImportVideo(context),
+                  delayFraction: 0.15,
+                ),
+                const SizedBox(height: 12),
+                _buildSpeedDialItem(
+                  context: context,
+                  theme: theme,
+                  colors: colors,
+                  label: 'Record Live',
+                  icon: Icons.videocam_rounded,
+                  heroTag: 'fab_record_live',
+                  color: colors.primaryContainer,
+                  iconColor: colors.onPrimaryContainer,
+                  onTap: () => _createAndCaptureLive(context),
+                  delayFraction: 0.0,
+                ),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        ),
+        FloatingActionButton(
+          heroTag: 'fab_main',
+          onPressed: _toggleFab,
+          child: AnimatedRotation(
+            turns: _isFabOpen ? 0.125 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeedDialItem({
+    required BuildContext context,
+    required ThemeData theme,
+    required ColorScheme colors,
+    required String label,
+    required IconData icon,
+    required String heroTag,
+    required Color color,
+    required Color iconColor,
+    required VoidCallback onTap,
+    required double delayFraction,
+  }) {
+    final itemAnimation = CurvedAnimation(
+      parent: _fabAnimationController,
+      curve: Interval(delayFraction, 1.0, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: itemAnimation,
+      child: ScaleTransition(
+        scale: itemAnimation,
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () {
+                _closeFab();
+                onTap();
+              },
+              child: Material(
+                color: colors.surfaceContainerHigh,
+                elevation: 2,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            FloatingActionButton.small(
+              heroTag: heroTag,
+              backgroundColor: color,
+              foregroundColor: iconColor,
+              elevation: 2,
+              onPressed: () {
+                _closeFab();
+                onTap();
+              },
+              child: Icon(icon),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -425,90 +610,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (!mounted || confirmed != true) return;
     await ref.read(foldersNotifierProvider.notifier).deleteFolder(folder.id);
-  }
-
-  void _showNewNoteOptions(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: colors.onSurfaceVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                'New Note',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.videocam_rounded,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                title: const Text('Record Live'),
-                subtitle: const Text('Capture whiteboard in real-time'),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _createAndCaptureLive(context);
-                },
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                leading: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colors.secondaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.upload_file_rounded,
-                    color: colors.onSecondaryContainer,
-                  ),
-                ),
-                title: const Text('Upload Video'),
-                subtitle: const Text('Import a prerecorded lecture video'),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _createAndImportVideo(context);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _createAndCaptureLive(BuildContext context) async {
