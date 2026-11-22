@@ -26,15 +26,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authNotifier,
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
-      if (authState.isLoading && authState.user == null) {
-        // While checking stored session on app launch, do not prematurely redirect
-        return null;
-      }
-
       final isLoggedIn = authState.user != null;
       final isLoggingIn = state.matchedLocation == '/login';
 
-      if (!isLoggedIn && !isLoggingIn) return '/login';
+      // Auth is only used for cloud backups: never block unauthenticated users from app content.
+      // If a logged-in user is on /login, redirect them back to the main app.
       if (isLoggedIn && isLoggingIn) return '/';
       return null;
     },

@@ -34,9 +34,7 @@ class FoldersNotifier extends Notifier<FoldersState> {
 
   @override
   FoldersState build() {
-    final userId = ref.watch(authNotifierProvider).user?.id;
-    if (userId == null) return const FoldersState(isLoading: false);
-
+    final userId = ref.watch(authNotifierProvider).user?.id ?? 'local';
     final repo = ref.watch(foldersRepositoryProvider);
 
     _subscription?.cancel();
@@ -59,8 +57,7 @@ class FoldersNotifier extends Notifier<FoldersState> {
   }
 
   Future<Folder?> createFolder({required String name, String icon = '📁'}) async {
-    final userId = ref.read(authNotifierProvider).user?.id;
-    if (userId == null) return null;
+    final userId = ref.read(authNotifierProvider).user?.id ?? 'local';
     try {
       final repo = ref.read(foldersRepositoryProvider);
       return await repo.createFolder(
@@ -110,7 +107,7 @@ final folderByIdProvider =
 
 final notesInFolderProvider =
     StreamProvider.autoDispose.family<List<Note>, String>((ref, folderId) {
-  final userId = ref.watch(authNotifierProvider).user?.id ?? '';
+  final userId = ref.watch(authNotifierProvider).user?.id ?? 'local';
   final db = ref.watch(foldersRepositoryProvider);
   return db.watchFolders(userId).asyncExpand((_) {
     final notesRepo = ref.watch(notesRepositoryProvider);

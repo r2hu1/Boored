@@ -110,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             Text(
-              user?.name.trim().isNotEmpty == true ? user!.name : 'Friend',
+              user?.name.trim().isNotEmpty == true ? user!.name : 'Boored',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 fontSize: 18,
@@ -123,6 +123,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         actions: [
           Consumer(
             builder: (ctx, ref, _) {
+              final user = ref.watch(authNotifierProvider).user;
               final syncState = ref.watch(syncNotifierProvider);
               if (syncState.status == SyncStatus.syncing) {
                 return const Padding(
@@ -138,27 +139,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               }
               return IconButton(
                 icon: Badge(
-                  isLabelVisible: syncState.pendingCount > 0,
+                  isLabelVisible: user != null && syncState.pendingCount > 0,
                   label: Text('${syncState.pendingCount}'),
-                  child: const Icon(Icons.sync),
+                  child: Icon(user != null ? Icons.sync : Icons.cloud_outlined),
                 ),
-                tooltip: 'Sync changes',
+                tooltip: user != null ? 'Sync changes' : 'Cloud backup (Sign in)',
                 onPressed: () {
-                  ref.read(syncNotifierProvider.notifier).syncNow();
+                  if (user == null) {
+                    context.push('/login');
+                  } else {
+                    ref.read(syncNotifierProvider.notifier).syncNow();
+                  }
                 },
               );
             },
           ),
-          if (user != null)
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'settings') {
-                  context.push('/settings');
-                } else if (value == 'sign_out') {
-                  ref.read(authNotifierProvider.notifier).signOut();
-                }
-              },
-              itemBuilder: (context) => [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'settings') {
+                context.push('/settings');
+              } else if (value == 'sign_in') {
+                context.push('/login');
+              } else if (value == 'sign_out') {
+                ref.read(authNotifierProvider.notifier).signOut();
+              }
+            },
+            itemBuilder: (context) => [
+              if (user != null) ...[
                 PopupMenuItem(
                   enabled: false,
                   child: Column(
@@ -170,16 +177,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
                 const PopupMenuDivider(),
+              ],
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 8),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              if (user == null)
                 const PopupMenuItem(
-                  value: 'settings',
+                  value: 'sign_in',
                   child: Row(
                     children: [
-                      Icon(Icons.settings, size: 20),
+                      Icon(Icons.cloud_upload_outlined, size: 20),
                       SizedBox(width: 8),
-                      Text('Settings'),
+                      Text('Cloud Backup (Sign in)'),
                     ],
                   ),
-                ),
+                )
+              else
                 const PopupMenuItem(
                   value: 'sign_out',
                   child: Row(
@@ -190,29 +210,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ],
                   ),
                 ),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: user.avatarUrl != null
-                    ? CircleAvatar(
-                        radius: 16,
-                        backgroundImage: NetworkImage(user.avatarUrl!),
-                      )
-                    : CircleAvatar(
-                        radius: 16,
-                        backgroundColor: colors.primaryContainer,
-                        child: Text(
-                          user.name.isNotEmpty
-                              ? user.name[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: colors.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: user?.avatarUrl != null
+                  ? CircleAvatar(
+                      radius: 16,
+                      backgroundImage: NetworkImage(user!.avatarUrl!),
+                    )
+                  : CircleAvatar(
+                      radius: 16,
+                      backgroundColor: colors.primaryContainer,
+                      child: user != null
+                          ? Text(
+                              user.name.isNotEmpty
+                                  ? user.name[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                color: colors.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            )
+                          : Icon(
+                              Icons.person_outline,
+                              size: 18,
+                              color: colors.onPrimaryContainer,
+                            ),
+                    ),
             ),
+          ),
         ],
       ),
       body: PopScope(
@@ -296,11 +322,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     SliverToBoxAdapter(
                       child: SizedBox(
                         height: 168,
-                        child: Padding(
+                        child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _CreateFolderCard(
-                            onTap: () => _createFolder(context),
-                          ),
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            _CreateFolderCard(
+                              onTap: () => _createFolder(context),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -707,16 +736,16 @@ class _CreateFolderCard extends StatelessWidget {
           height: cardHeight,
           child: Stack(
             children: [
-              // Back Folder Flap with Tab Shape
+              // 1. Back Folder Flap with Tab Shape
               Positioned.fill(
                 child: CustomPaint(
                   painter: _CreateFolderBackPainter(
-                    color: colors.outlineVariant.withValues(alpha: 0.5),
+                    color: colors.primaryContainer.withValues(alpha: 0.7),
                   ),
                 ),
               ),
 
-              // Paper Sheet Peeking Out
+              // 2. Paper Sheet Peeking Out
               Positioned(
                 left: 10,
                 right: 10,
@@ -730,7 +759,7 @@ class _CreateFolderCard extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 4,
                         offset: const Offset(0, 1),
                       ),
@@ -739,7 +768,7 @@ class _CreateFolderCard extends StatelessWidget {
                 ),
               ),
 
-              // Front Folder Pocket
+              // 3. Front Folder Pocket (Matching FolderCard structure & styling)
               Positioned(
                 left: 0,
                 right: 0,
@@ -747,28 +776,87 @@ class _CreateFolderCard extends StatelessWidget {
                 bottom: 0,
                 child: Container(
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: colors.outlineVariant,
-                      width: 1.5,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colors.primaryContainer,
+                        colors.primaryContainer.withValues(alpha: 0.88),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    color: colors.surfaceContainerHigh,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.create_new_folder_rounded,
-                        size: 32,
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.7),
+                    border: Border.all(
+                      color: colors.primary.withValues(alpha: 0.2),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
                       ),
-                      const SizedBox(height: 6),
+                    ],
+                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'New Folder',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.onPrimaryContainer,
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Create folder',
+                                  style: TextStyle(
+                                    color: colors.onPrimaryContainer
+                                        .withValues(alpha: 0.75),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors.primary.withValues(alpha: 0.15),
+                            ),
+                            child: Icon(
+                              Icons.add_rounded,
+                              size: 16,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
                       Text(
-                        'New Folder',
+                        'Tap to create folder',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          color: colors.onPrimaryContainer
+                              .withValues(alpha: 0.72),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],

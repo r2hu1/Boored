@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.media.MediaMetadataRetriever
 import android.util.Log
@@ -20,6 +22,7 @@ import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
+import org.opencv.photo.Photo
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.abs
@@ -331,8 +334,35 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun decodeBitmapWithOrientation(path: String): Bitmap? {
+        val bitmap = BitmapFactory.decodeFile(path) ?: return null
+        return try {
+            val exif = ExifInterface(path)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+            val matrix = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+                else -> return bitmap
+            }
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            if (rotated != bitmap) {
+                bitmap.recycle()
+            }
+            rotated
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
     private fun detectCornersNative(imagePath: String): List<Map<String, Double>> {
-        val bitmap = BitmapFactory.decodeFile(imagePath)
+        val bitmap = decodeBitmapWithOrientation(imagePath)
             ?: throw IllegalArgumentException("Cannot decode image from $imagePath")
 
         val originalWidth = bitmap.width.toDouble()
@@ -535,7 +565,7 @@ class MainActivity : FlutterActivity() {
         dstPath: String,
         cornersNorm: List<Map<String, Double>>
     ): Boolean {
-        val bitmap = BitmapFactory.decodeFile(srcPath) ?: return false
+        val bitmap = decodeBitmapWithOrientation(srcPath) ?: return false
         val width = bitmap.width.toDouble()
         val height = bitmap.height.toDouble()
 
@@ -597,12 +627,16 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun enhanceWhiteboardNative(srcPath: String, dstPath: String): Boolean {
-        val bitmap = BitmapFactory.decodeFile(srcPath) ?: return false
-        val bgr = Mat()
-        Utils.bitmapToMat(bitmap, bgr)
+        val bitmap = decodeBitmapWithOrientation(srcPath) ?: return false
+        val rgba = Mat()
+        Utils.bitmapToMat(bitmap, rgba)
         bitmap.recycle()
 
-        // 1. Bilateral filtering for edge-preserving denoising (removes sensor noise & JPEG artifacts without blurring stroke edges)
+        val bgr = Mat()
+        Imgproc.cvtColor(rgba, bgr, Imgproc.COLOR_RGBA2BGR)
+        rgba.release()
+
+        // 1. Bilateral filtering for edge-preserving denoising on 3-channel BGR
         val denoised = Mat()
         Imgproc.bilateralFilter(bgr, denoised, 5, 50.0, 50.0)
         bgr.release()
@@ -626,8 +660,11 @@ class MainActivity : FlutterActivity() {
         val sharpened = Mat()
         Core.addWeighted(enhancedBgr, 1.45, blurred, -0.45, 0.0, sharpened)
 
-        val outBitmap = Bitmap.createBitmap(sharpened.cols(), sharpened.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(sharpened, outBitmap)
+        val outRgba = Mat()
+        Imgproc.cvtColor(sharpened, outRgba, Imgproc.COLOR_BGR2RGBA)
+
+        val outBitmap = Bitmap.createBitmap(outRgba.cols(), outRgba.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(outRgba, outBitmap)
 
         val file = File(dstPath)
         file.parentFile?.mkdirs()
@@ -641,15 +678,16 @@ class MainActivity : FlutterActivity() {
         enhancedBgr.release()
         blurred.release()
         sharpened.release()
+        outRgba.release()
         for (p in labPlanes) p.release()
 
         return true
     }
 
     private fun detectChangeNative(prevPath: String, currPath: String): Map<String, Any> {
-        val prevBmp = BitmapFactory.decodeFile(prevPath)
+        val prevBmp = decodeBitmapWithOrientation(prevPath)
             ?: return mapOf("eventType" to "NONE", "diffRatio" to 0.0)
-        val currBmp = BitmapFactory.decodeFile(currPath)
+        val currBmp = decodeBitmapWithOrientation(currPath)
             ?: return mapOf("eventType" to "NONE", "diffRatio" to 0.0)
 
         val prevMat = Mat()
@@ -712,24 +750,32 @@ class MainActivity : FlutterActivity() {
         maskWidth: Int,
         maskHeight: Int
     ): Boolean {
-        val currBmp = BitmapFactory.decodeFile(currentPath) ?: return false
-        val bgBmp = BitmapFactory.decodeFile(cleanBackgroundPath) ?: return false
+        val currBmp = decodeBitmapWithOrientation(currentPath) ?: return false
+        val bgBmp = decodeBitmapWithOrientation(cleanBackgroundPath) ?: return false
 
-        val currMat = Mat()
-        val bgMat = Mat()
-        Utils.bitmapToMat(currBmp, currMat)
-        Utils.bitmapToMat(bgBmp, bgMat)
+        val currRgba = Mat()
+        val bgRgba = Mat()
+        Utils.bitmapToMat(currBmp, currRgba)
+        Utils.bitmapToMat(bgBmp, bgRgba)
         currBmp.recycle()
         bgBmp.recycle()
+
+        // Convert both to BGR (3 channels) for uniform processing
+        val currMat = Mat()
+        val bgMat = Mat()
+        Imgproc.cvtColor(currRgba, currMat, Imgproc.COLOR_RGBA2BGR)
+        Imgproc.cvtColor(bgRgba, bgMat, Imgproc.COLOR_RGBA2BGR)
+        currRgba.release()
+        bgRgba.release()
 
         if (currMat.size() != bgMat.size()) {
             Imgproc.resize(bgMat, bgMat, currMat.size())
         }
 
-        // Build binary person mask from confidence array with 0.5 threshold
+        // Build binary person mask from confidence array with 0.25 distance-tuned threshold
         val maskByteArray = ByteArray(maskWidth * maskHeight)
         for (i in 0 until minOf(maskConfidences.size, maskByteArray.size)) {
-            maskByteArray[i] = if ((maskConfidences[i] as Number).toDouble() > 0.5) 255.toByte() else 0.toByte()
+            maskByteArray[i] = if ((maskConfidences[i] as Number).toDouble() > 0.25) 255.toByte() else 0.toByte()
         }
 
         val rawMaskMat = Mat(maskHeight, maskWidth, CvType.CV_8UC1)
@@ -739,51 +785,75 @@ class MainActivity : FlutterActivity() {
         Imgproc.resize(rawMaskMat, fullMaskMat, currMat.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
 
         // Morphological dilation to expand boundary slightly (covers clothes fringes, hair, gestures)
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(11.0, 11.0))
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(15.0, 15.0))
         val dilatedMask = Mat()
         Imgproc.dilate(fullMaskMat, dilatedMask, kernel)
 
-        // Soft Gaussian blur on the mask for seamless alpha blending without hard cutout edges
-        val smoothMask = Mat()
-        Imgproc.GaussianBlur(dilatedMask, smoothMask, Size(15.0, 15.0), 0.0)
-
-        // Alpha blend: result = (currMat * (1 - alpha)) + (bgMat * alpha) where alpha is person mask
-        val smoothMask32F = Mat()
-        smoothMask.convertTo(smoothMask32F, CvType.CV_32FC1, 1.0 / 255.0)
-
-        val smoothMask3Ch = Mat()
-        val channels = ArrayList<Mat>(3)
-        channels.add(smoothMask32F)
-        channels.add(smoothMask32F)
-        channels.add(smoothMask32F)
-        Core.merge(channels, smoothMask3Ch)
-
-        val curr32F = Mat()
-        val bg32F = Mat()
-        currMat.convertTo(curr32F, CvType.CV_32FC3)
-        bgMat.convertTo(bg32F, CvType.CV_32FC3)
-
-        // currPart = curr32F * (1.0 - mask)
-        val onesMat = Mat(smoothMask3Ch.size(), smoothMask3Ch.type(), Scalar.all(1.0))
-        val invMask = Mat()
-        Core.subtract(onesMat, smoothMask3Ch, invMask)
-        onesMat.release()
-        val currPart = Mat()
-        Core.multiply(curr32F, invMask, currPart)
-
-        // bgPart = bg32F * mask
-        val bgPart = Mat()
-        Core.multiply(bg32F, smoothMask3Ch, bgPart)
-
-        // blended = currPart + bgPart
-        val blended32F = Mat()
-        Core.add(currPart, bgPart, blended32F)
-
         val resultMat = Mat()
-        blended32F.convertTo(resultMat, CvType.CV_8UC3)
+        val isSameFrame = (currentPath == cleanBackgroundPath)
+        val nonZeroCount = Core.countNonZero(dilatedMask)
 
-        val outBitmap = Bitmap.createBitmap(resultMat.cols(), resultMat.rows(), Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(resultMat, outBitmap)
+        if (nonZeroCount == 0) {
+            currMat.copyTo(resultMat)
+        } else if (isSameFrame) {
+            // Whiteboard inpainting: Telea algorithm fills occluded area with whiteboard texture/color
+            try {
+                Photo.inpaint(currMat, dilatedMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+            } catch (e: Exception) {
+                currMat.copyTo(resultMat)
+            }
+        } else {
+            // Convert grayscale dilated mask to 3-channel BGR
+            val maskBgr = Mat()
+            Imgproc.cvtColor(dilatedMask, maskBgr, Imgproc.COLOR_GRAY2BGR)
+
+            // Soft Gaussian blur on the mask for seamless alpha blending without hard cutout edges
+            val smoothMask = Mat()
+            Imgproc.GaussianBlur(maskBgr, smoothMask, Size(21.0, 21.0), 0.0)
+            maskBgr.release()
+
+            val mask32F = Mat()
+            smoothMask.convertTo(mask32F, CvType.CV_32FC3, 1.0 / 255.0)
+            smoothMask.release()
+
+            // Both currMat and bgMat are 3-channel (CV_8UC3), converting to CV_32FC3 gives CV_32FC3
+            val curr32F = Mat()
+            val bg32F = Mat()
+            currMat.convertTo(curr32F, CvType.CV_32FC3)
+            bgMat.convertTo(bg32F, CvType.CV_32FC3)
+
+            // currPart = curr32F * (1.0 - mask)
+            val onesMat = Mat(mask32F.size(), CvType.CV_32FC3, Scalar(1.0, 1.0, 1.0))
+            val invMask = Mat()
+            Core.subtract(onesMat, mask32F, invMask)
+            onesMat.release()
+
+            val currPart = Mat()
+            Core.multiply(curr32F, invMask, currPart)
+            invMask.release()
+            curr32F.release()
+
+            // bgPart = bg32F * mask
+            val bgPart = Mat()
+            Core.multiply(bg32F, mask32F, bgPart)
+            mask32F.release()
+            bg32F.release()
+
+            // blended = currPart + bgPart
+            val blended32F = Mat()
+            Core.add(currPart, bgPart, blended32F)
+            currPart.release()
+            bgPart.release()
+
+            blended32F.convertTo(resultMat, CvType.CV_8UC3)
+            blended32F.release()
+        }
+
+        val outRgba = Mat()
+        Imgproc.cvtColor(resultMat, outRgba, Imgproc.COLOR_BGR2RGBA)
+
+        val outBitmap = Bitmap.createBitmap(outRgba.cols(), outRgba.rows(), Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(outRgba, outBitmap)
 
         val file = File(dstPath)
         file.parentFile?.mkdirs()
@@ -798,17 +868,8 @@ class MainActivity : FlutterActivity() {
         fullMaskMat.release()
         kernel.release()
         dilatedMask.release()
-        smoothMask.release()
-        smoothMask32F.release()
-        smoothMask3Ch.release()
-        for (ch in channels) ch.release()
-        curr32F.release()
-        bg32F.release()
-        invMask.release()
-        currPart.release()
-        bgPart.release()
-        blended32F.release()
         resultMat.release()
+        outRgba.release()
 
         return true
     }
@@ -832,7 +893,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun preprocessForOcrNative(srcPath: String, dstPath: String): Boolean {
-        val bitmap = BitmapFactory.decodeFile(srcPath) ?: return false
+        val bitmap = decodeBitmapWithOrientation(srcPath) ?: return false
         val srcMat = Mat()
         Utils.bitmapToMat(bitmap, srcMat)
         bitmap.recycle()

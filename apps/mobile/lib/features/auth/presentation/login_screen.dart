@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerWidget {
@@ -10,7 +11,29 @@ class LoginScreen extends ConsumerWidget {
     final authState = ref.watch(authNotifierProvider);
     final theme = Theme.of(context);
 
+    ref.listen(authNotifierProvider, (prev, next) {
+      if (next.user != null) {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/');
+        }
+      }
+    });
+
     return Scaffold(
+      appBar: AppBar(
+        leading: CloseButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
+        title: const Text('Cloud Backup'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -50,7 +73,7 @@ class LoginScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Classroom whiteboard digitization & timeline notes',
+                'Sign in to enable automatic cloud backups across devices',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -95,7 +118,18 @@ class LoginScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
+                child: const Text('Continue offline / Skip for now'),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

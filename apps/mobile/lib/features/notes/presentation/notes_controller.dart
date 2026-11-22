@@ -42,9 +42,7 @@ class NotesNotifier extends Notifier<NotesState> {
 
   @override
   NotesState build() {
-    final userId = ref.watch(authNotifierProvider).user?.id;
-    if (userId == null) return const NotesState(isLoading: false);
-
+    final userId = ref.watch(authNotifierProvider).user?.id ?? 'local';
     final repo = ref.watch(notesRepositoryProvider);
 
     _subscription?.cancel();
@@ -74,8 +72,7 @@ class NotesNotifier extends Notifier<NotesState> {
   }
 
   Future<Note?> createNote(String title, {String? folderId}) async {
-    final userId = ref.read(authNotifierProvider).user?.id;
-    if (userId == null) return null;
+    final userId = ref.read(authNotifierProvider).user?.id ?? 'local';
     try {
       final repo = ref.read(notesRepositoryProvider);
       return await repo.createNote(userId, title, folderId: folderId);

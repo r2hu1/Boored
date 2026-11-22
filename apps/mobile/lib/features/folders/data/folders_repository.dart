@@ -13,7 +13,9 @@ class FoldersRepository {
 
   FoldersRepository(this._dao);
 
-  Stream<List<Folder>> watchFolders(String userId) => _dao.watchAllFolders(userId);
+  Stream<List<Folder>> watchFolders([String? userId]) => _dao.watchAllFolders(userId);
+
+  Future<List<Folder>> getFolders([String? userId]) => _dao.getAllFolders(userId);
 
   Stream<Folder?> watchFolder(String folderId) => _dao.watchFolder(folderId);
 

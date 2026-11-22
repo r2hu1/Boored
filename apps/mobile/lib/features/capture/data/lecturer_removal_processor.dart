@@ -37,7 +37,7 @@ class LecturerRemovalProcessor {
       for (final path in keyframePaths) {
         final mask = masks[path];
         if (mask != null) {
-          final count = mask.confidences.where((c) => c > 0.5).length;
+          final count = mask.confidences.where((c) => c > 0.25).length;
           if (count < minPersonPixels) {
             minPersonPixels = count;
             bestPath = path;
@@ -69,22 +69,24 @@ class LecturerRemovalProcessor {
           }
         }
 
-        if (referenceFrame != null && referenceFrame != path) {
-          final compositedPath = path.replaceAll('.jpg', '_deoccluded_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
-          final success = await openCVService.compositeUnoccluded(
-            currentPath: path,
-            cleanBackgroundPath: referenceFrame,
-            dstPath: compositedPath,
-            maskConfidences: mask.confidences,
-            maskWidth: mask.width,
-            maskHeight: mask.height,
-          );
+        // If no separate clean reference frame exists, refPath is path itself,
+        // which triggers native Telea inpainting on the whiteboard occlusion mask
+        final refPath = (referenceFrame != null && referenceFrame != path)
+            ? referenceFrame
+            : path;
 
-          if (success != null && File(compositedPath).existsSync()) {
-            cleanOutputs.add(compositedPath);
-          } else {
-            cleanOutputs.add(path);
-          }
+        final compositedPath = path.replaceAll('.jpg', '_deoccluded_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+        final success = await openCVService.compositeUnoccluded(
+          currentPath: path,
+          cleanBackgroundPath: refPath,
+          dstPath: compositedPath,
+          maskConfidences: mask.confidences,
+          maskWidth: mask.width,
+          maskHeight: mask.height,
+        );
+
+        if (success != null && File(compositedPath).existsSync()) {
+          cleanOutputs.add(compositedPath);
         } else {
           cleanOutputs.add(path);
         }

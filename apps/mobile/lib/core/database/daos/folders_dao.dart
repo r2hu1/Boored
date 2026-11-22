@@ -7,18 +7,20 @@ part 'folders_dao.g.dart';
 class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
   FoldersDao(super.db);
 
-  Stream<List<Folder>> watchAllFolders(String userId) {
-    return (select(folders)
-          ..where((f) => f.userId.equals(userId) & f.deletedAt.isNull())
-          ..orderBy([(f) => OrderingTerm.asc(f.name)]))
-        .watch();
+  Stream<List<Folder>> watchAllFolders([String? userId]) {
+    final query = select(folders)..where((f) => f.deletedAt.isNull());
+    if (userId != null && userId != 'local') {
+      query.where((f) => f.userId.equals(userId) | f.userId.equals('local'));
+    }
+    return (query..orderBy([(f) => OrderingTerm.asc(f.name)])).watch();
   }
 
-  Future<List<Folder>> getAllFolders(String userId) {
-    return (select(folders)
-          ..where((f) => f.userId.equals(userId) & f.deletedAt.isNull())
-          ..orderBy([(f) => OrderingTerm.asc(f.name)]))
-        .get();
+  Future<List<Folder>> getAllFolders([String? userId]) {
+    final query = select(folders)..where((f) => f.deletedAt.isNull());
+    if (userId != null && userId != 'local') {
+      query.where((f) => f.userId.equals(userId) | f.userId.equals('local'));
+    }
+    return (query..orderBy([(f) => OrderingTerm.asc(f.name)])).get();
   }
 
   Stream<Folder?> watchFolder(String folderId) {

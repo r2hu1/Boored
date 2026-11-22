@@ -90,9 +90,23 @@ class SessionFinalizer {
         final imageBytes = await File(imgPath).readAsBytes();
         final image = pw.MemoryImage(imageBytes);
 
+        // Dynamically match PDF page format to image aspect ratio & orientation
+        bool isLandscape = true;
+        if (image.width != null && image.height != null) {
+          final isRotated = image.orientation == PdfImageOrientation.topRight ||
+              image.orientation == PdfImageOrientation.bottomLeft ||
+              image.orientation == PdfImageOrientation.leftTop ||
+              image.orientation == PdfImageOrientation.rightBottom;
+          final effectiveWidth = isRotated ? image.height! : image.width!;
+          final effectiveHeight = isRotated ? image.width! : image.height!;
+          isLandscape = effectiveWidth >= effectiveHeight;
+        }
+
+        final pageFormat = isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.a4.landscape,
+            pageFormat: pageFormat,
             margin: pw.EdgeInsets.zero,
             build: (pw.Context ctx) {
               return pw.FullPage(
@@ -155,9 +169,24 @@ class SessionFinalizer {
       if (File(imgPath).existsSync()) {
         final imageBytes = await File(imgPath).readAsBytes();
         final image = pw.MemoryImage(imageBytes);
+
+        // Dynamically match PDF page format to image aspect ratio & orientation
+        bool isLandscape = true;
+        if (image.width != null && image.height != null) {
+          final isRotated = image.orientation == PdfImageOrientation.topRight ||
+              image.orientation == PdfImageOrientation.bottomLeft ||
+              image.orientation == PdfImageOrientation.leftTop ||
+              image.orientation == PdfImageOrientation.rightBottom;
+          final effectiveWidth = isRotated ? image.height! : image.width!;
+          final effectiveHeight = isRotated ? image.width! : image.height!;
+          isLandscape = effectiveWidth >= effectiveHeight;
+        }
+
+        final pageFormat = isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+
         pdf.addPage(
           pw.Page(
-            pageFormat: PdfPageFormat.a4.landscape,
+            pageFormat: pageFormat,
             margin: pw.EdgeInsets.zero,
             build: (pw.Context ctx) {
               return pw.FullPage(

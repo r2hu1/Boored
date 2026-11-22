@@ -57,11 +57,9 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _checkExtraPdfsExist();
   }
-
-  int get _tabCount => 3 + (_hasDigitalPdf ? 1 : 0) + (_hasCleanPdf ? 1 : 0);
 
   Future<void> _checkExtraPdfsExist() async {
     try {
@@ -72,15 +70,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       final cleanExists = await cleanPdf.exists();
       if (mounted && (digitalExists != _hasDigitalPdf || cleanExists != _hasCleanPdf)) {
         setState(() {
-          final oldIndex = _tabController.index;
-          _tabController.dispose();
           _hasDigitalPdf = digitalExists;
           _hasCleanPdf = cleanExists;
-          _tabController = TabController(
-            length: _tabCount,
-            vsync: this,
-            initialIndex: oldIndex.clamp(0, _tabCount - 1),
-          );
         });
       }
     } catch (_) {}
@@ -137,10 +128,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
       if (mounted) {
         setState(() {
           _pdfReloadTrigger++;
-          if (_hasDigitalPdf) {
-            _tabController.animateTo(3);
-          }
         });
+        _tabController.animateTo(3);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -224,6 +213,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         await segmenter.dispose();
       }
 
+      ref.invalidate(_keyframesProvider(widget.noteId));
       await _checkExtraPdfsExist();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -231,12 +221,8 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
         );
         setState(() {
           _pdfReloadTrigger++;
-          // Switch to the Clean tab
-          if (_hasCleanPdf) {
-            final cleanTabIndex = 3 + (_hasDigitalPdf ? 1 : 0);
-            _tabController.animateTo(cleanTabIndex);
-          }
         });
+        _tabController.animateTo(4);
       }
     } catch (e) {
       if (mounted) {
@@ -293,13 +279,16 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                   ),
                 ),
                 child: TabBar(
+                  key: const ValueKey('note_detail_tabs'),
                   controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   indicatorSize: TabBarIndicatorSize.tab,
                   indicatorWeight: 2,
                   labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
-                  tabs: [
-                    const Tab(
+                  tabs: const [
+                    Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -309,7 +298,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
-                    const Tab(
+                    Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -319,7 +308,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
-                    const Tab(
+                    Tab(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -329,28 +318,26 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                         ],
                       ),
                     ),
-                    if (_hasDigitalPdf)
-                      const Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.description_outlined, size: 16),
-                            SizedBox(width: 6),
-                            Text('Digital'),
-                          ],
-                        ),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.description_outlined, size: 16),
+                          SizedBox(width: 6),
+                          Text('Digital'),
+                        ],
                       ),
-                    if (_hasCleanPdf)
-                      const Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.person_off_outlined, size: 16),
-                            SizedBox(width: 6),
-                            Text('Clean'),
-                          ],
-                        ),
+                    ),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_off_outlined, size: 16),
+                          SizedBox(width: 6),
+                          Text('Clean'),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -488,6 +475,7 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                 }
 
                 return TabBarView(
+                  key: const ValueKey('note_detail_tab_bar_view'),
                   controller: _tabController,
                   children: [
                     _buildTimelineTab(keyframes),
@@ -499,22 +487,20 @@ class _NoteDetailScreenState extends ConsumerState<NoteDetailScreen>
                       title: 'Document PDF',
                       onRegenerate: _runFinalPass,
                     ),
-                    if (_hasDigitalPdf)
-                      _PdfTab(
-                        key: ValueKey('${widget.noteId}_digital_$_pdfReloadTrigger'),
-                        noteId: widget.noteId,
-                        fileName: 'digital.pdf',
-                        title: 'Digital Copy',
-                        onRegenerate: _extractTextAndMakeDigitalCopy,
-                      ),
-                    if (_hasCleanPdf)
-                      _PdfTab(
-                        key: ValueKey('${widget.noteId}_clean_$_pdfReloadTrigger'),
-                        noteId: widget.noteId,
-                        fileName: 'clean.pdf',
-                        title: 'Clean Copy',
-                        onRegenerate: _removeProfessor,
-                      ),
+                    _PdfTab(
+                      key: ValueKey('${widget.noteId}_digital_$_pdfReloadTrigger'),
+                      noteId: widget.noteId,
+                      fileName: 'digital.pdf',
+                      title: 'Digital Copy',
+                      onRegenerate: _extractTextAndMakeDigitalCopy,
+                    ),
+                    _PdfTab(
+                      key: ValueKey('${widget.noteId}_clean_$_pdfReloadTrigger'),
+                      noteId: widget.noteId,
+                      fileName: 'clean.pdf',
+                      title: 'Clean Copy',
+                      onRegenerate: _removeProfessor,
+                    ),
                   ],
                 );
               },

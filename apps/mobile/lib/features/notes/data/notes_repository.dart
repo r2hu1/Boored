@@ -13,12 +13,12 @@ class NotesRepository {
 
   NotesRepository(this._dao);
 
-  Stream<List<Note>> watchNotes(String userId) => _dao.watchAllNotes(userId);
+  Stream<List<Note>> watchNotes([String? userId]) => _dao.watchAllNotes(userId);
 
-  Stream<List<Note>> watchNotesInFolder(String userId, String folderId) =>
+  Stream<List<Note>> watchNotesInFolder(String? userId, String folderId) =>
       _dao.watchNotesInFolder(userId, folderId);
 
-  Future<List<Note>> searchNotes(String userId, String query) =>
+  Future<List<Note>> searchNotes(String? userId, String query) =>
       _dao.searchNotes(userId, query);
 
   Future<Note> createNote(String userId, String title, {String? folderId}) =>

@@ -7,31 +7,30 @@ part 'notes_dao.g.dart';
 class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
   NotesDao(super.db);
 
-  Stream<List<Note>> watchAllNotes(String userId) {
-    return (select(notes)
-          ..where((n) => n.userId.equals(userId) & n.deletedAt.isNull())
-          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
-        .watch();
+  Stream<List<Note>> watchAllNotes([String? userId]) {
+    final query = select(notes)..where((n) => n.deletedAt.isNull());
+    if (userId != null && userId != 'local') {
+      query.where((n) => n.userId.equals(userId) | n.userId.equals('local'));
+    }
+    return (query..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();
   }
 
-  Stream<List<Note>> watchNotesInFolder(String userId, String folderId) {
-    return (select(notes)
-          ..where((n) =>
-              n.userId.equals(userId) &
-              n.folderId.equals(folderId) &
-              n.deletedAt.isNull())
-          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
-        .watch();
+  Stream<List<Note>> watchNotesInFolder(String? userId, String folderId) {
+    final query = select(notes)
+      ..where((n) => n.folderId.equals(folderId) & n.deletedAt.isNull());
+    if (userId != null && userId != 'local') {
+      query.where((n) => n.userId.equals(userId) | n.userId.equals('local'));
+    }
+    return (query..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();
   }
 
-  Stream<List<Note>> watchRootNotes(String userId) {
-    return (select(notes)
-          ..where((n) =>
-              n.userId.equals(userId) &
-              n.folderId.isNull() &
-              n.deletedAt.isNull())
-          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
-        .watch();
+  Stream<List<Note>> watchRootNotes([String? userId]) {
+    final query = select(notes)
+      ..where((n) => n.folderId.isNull() & n.deletedAt.isNull());
+    if (userId != null && userId != 'local') {
+      query.where((n) => n.userId.equals(userId) | n.userId.equals('local'));
+    }
+    return (query..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();
   }
 
   Stream<Note?> watchNote(String noteId) {
@@ -39,15 +38,14 @@ class NotesDao extends DatabaseAccessor<AppDatabase> with _$NotesDaoMixin {
         .watchSingleOrNull();
   }
 
-  Future<List<Note>> searchNotes(String userId, String query) {
+  Future<List<Note>> searchNotes(String? userId, String query) {
     final pattern = '%$query%';
-    return (select(notes)
-          ..where((n) =>
-              n.userId.equals(userId) &
-              n.deletedAt.isNull() &
-              n.title.like(pattern))
-          ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
-        .get();
+    final querySelect = select(notes)
+      ..where((n) => n.deletedAt.isNull() & n.title.like(pattern));
+    if (userId != null && userId != 'local') {
+      querySelect.where((n) => n.userId.equals(userId) | n.userId.equals('local'));
+    }
+    return (querySelect..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).get();
   }
 
   Future<Note> createNote({
