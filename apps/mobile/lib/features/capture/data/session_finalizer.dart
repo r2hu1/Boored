@@ -133,28 +133,21 @@ class SessionFinalizer {
 
   /// Runs professor/lecturer removal on all keyframes and generates
   /// a separate clean PDF (`clean.pdf`) with the de-occluded images.
-  /// Does NOT run OCR, does NOT regenerate document.pdf or digital.pdf.
+  /// Does NOT modify original keyframe image paths in the DB.
+  /// Does NOT regenerate document.pdf, digital.pdf, or timeline.json.
   Future<String?> removeProfessorAndGeneratePdf(String noteId) async {
     final rawKeyframes = await keyframesDao.getKeyframesForNote(noteId);
     if (rawKeyframes.isEmpty) return null;
 
-    // Run segmentation + compositing on all frames
+    // Run segmentation + compositing on all frames using the ORIGINAL image paths.
+    // This produces de-occluded copies without touching the originals.
     final keyframeImagePaths = rawKeyframes.map((k) => k.imagePath).toList();
     final deoccludedPaths =
         await lecturerRemovalProcessor.processKeyframeSequence(keyframeImagePaths);
 
-    // Update keyframe image paths in DB
-    for (int i = 0; i < rawKeyframes.length && i < deoccludedPaths.length; i++) {
-      final kf = rawKeyframes[i];
-      final cleanPath = deoccludedPaths[i];
-      if (cleanPath != kf.imagePath) {
-        await keyframesDao.updateKeyframeImageAndText(
-          kf.id,
-          cleanPath,
-          kf.extractedText ?? '',
-        );
-      }
-    }
+    // DO NOT update keyframe image paths in DB — that would overwrite the
+    // original images used by Timeline, Pages, and document.pdf.
+    // The clean (de-occluded) images are only used for clean.pdf below.
 
     // Generate clean PDF from the de-occluded images
     final appDir = await getApplicationDocumentsDirectory();
