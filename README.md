@@ -37,20 +37,20 @@ Documenting university and technical whiteboard lectures with standard phone cam
 
 ## Visual Workflow
 
-| Home & Folders | Action Options | Live Camera & Rectification |
-|:---:|:---:|:---:|
+|                                 Home & Folders                                  |                                                Action Options                                                 |                             Live Camera & Rectification                             |
+| :-----------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: |
 | <img src="assets/screenshots/home-screen.jpeg" width="240" alt="Home Screen" /> | <img src="assets/screenshots/record-upload-or-create-folder-options.jpeg" width="240" alt="Action Options" /> | <img src="assets/screenshots/camera-screen.jpeg" width="240" alt="Camera Screen" /> |
-| Organize lectures in folders with quick notes feed | Record live, upload video, or create folder | Real-time corner detection & perspective homography |
+|               Organize lectures in folders with quick notes feed                |                                  Record live, upload video, or create folder                                  |                 Real-time corner detection & perspective homography                 |
 
-| Scrubbable Timeline Player | Granular Generation Options |
-|:---:|:---:|
+|                            Scrubbable Timeline Player                            |                                 Granular Generation Options                                 |
+| :------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------: |
 | <img src="assets/screenshots/timeline.jpeg" width="240" alt="Timeline Player" /> | <img src="assets/screenshots/generate-options.jpeg" width="240" alt="Regenerate Options" /> |
-| Event playback (INITIAL, ADD, ERASE) & scrub controls | Select Document PDF, Clean Copy, Digital Copy, or All |
+|              Event playback (INITIAL, ADD, ERASE) & scrub controls               |                    Select Document PDF, Clean Copy, Digital Copy, or All                    |
 
-| Document PDF View | Clean Copy (Professor Removed) |
-|:---:|:---:|
+|                                Document PDF View                                |                                Clean Copy (Professor Removed)                                |
+| :-----------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
 | <img src="assets/screenshots/pdf-screen.jpeg" width="240" alt="Document PDF" /> | <img src="assets/screenshots/removed-professor-pdf.jpeg" width="240" alt="Clean Copy PDF" /> |
-| Full-resolution landscape A4 vector document | Temporal multi-frame recovery restoring actual board notes |
+|                  Full-resolution landscape A4 vector document                   |                  Temporal multi-frame recovery restoring actual board notes                  |
 
 ---
 
@@ -68,6 +68,7 @@ Boored
 ```
 
 ### Mobile Subsystem (On-Device)
+
 - **Framework**: Flutter 3.x with Riverpod (State Notifier pattern).
 - **Target**: Android (minSdk 24, targetSdk 36).
 - **Computer Vision**: OpenCV 4.5.3 (`warpPerspective`, CLAHE, unsharp mask, frame differencing) accessed via Android Kotlin `MethodChannel`.
@@ -76,6 +77,7 @@ Boored
 - **Document Engine**: Vector PDF generation (`pdf` and `pdfx` packages).
 
 ### Backend Subsystem (Cloud Sync)
+
 - **API Runtime**: Hono + TypeScript on Node.js.
 - **Authentication**: Google OAuth 2.0 ID token verification (`jose`), issuing JWT access tokens and rotating refresh tokens.
 - **Database**: PostgreSQL 16 with Drizzle ORM and full-text search.
@@ -86,6 +88,7 @@ Boored
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20+ and `pnpm`
 - Docker and Docker Compose
 - Flutter 3.24+ SDK and Android Studio (SDK Platform 35/36)
@@ -135,7 +138,6 @@ flutter run
 - [Architecture Summary](ARCHITECTURE.md): System layout and technical decisions.
 - [Setup Guide](docs/setup-guide.md): Local development environment walkthrough.
 - [Google Auth Setup](docs/google-auth-setup.md): OAuth 2.0 configuration, SHA-1 keystore fingerprints, and Google Cloud Console setup.
-- [Progress Tracker](PROGRESS.md): Development milestones and implementation logs.
 
 ---
 
