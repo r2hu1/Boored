@@ -861,9 +861,56 @@ class MainActivity : FlutterActivity() {
         if (nonZeroCurr == 0) {
             currMat.copyTo(resultMat)
         } else if (isSameFrame || bgMaskConfidences == null || bgMaskWidth == null || bgMaskHeight == null) {
-            // Whiteboard inpainting: Telea algorithm fills occluded area with whiteboard texture/color
+            // Single-frame professor removal: no clean background reference available.
+            // Sample the actual whiteboard color from the border around the person,
+            // pre-fill, then multi-scale inpaint for seamless content-aware fill.
             try {
-                Photo.inpaint(currMat, currMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+                // Build a border ring around the person mask to sample real board content
+                val borderKernel = Imgproc.getStructuringElement(
+                    Imgproc.MORPH_ELLIPSE, Size(45.0, 45.0)
+                )
+                val dilatedMask = Mat()
+                Imgproc.dilate(currMask, dilatedMask, borderKernel)
+                borderKernel.release()
+
+                val borderRing = Mat()
+                Core.subtract(dilatedMask, currMask, borderRing)
+                dilatedMask.release()
+
+                // Sample mean whiteboard color from the surrounding ring
+                val borderMean = Core.mean(currMat, borderRing)
+                borderRing.release()
+
+                // Pre-fill the masked area with the real whiteboard color
+                val preFilled = Mat()
+                currMat.copyTo(preFilled)
+                preFilled.setTo(borderMean, currMask)
+
+                // Multi-scale inpainting: broad color fill, then fine detail
+                val tempResult = Mat()
+                Photo.inpaint(preFilled, currMask, tempResult, 21.0, Photo.INPAINT_NS)
+                preFilled.release()
+
+                Photo.inpaint(tempResult, currMask, resultMat, 5.0, Photo.INPAINT_TELEA)
+                tempResult.release()
+
+                // Smooth the boundary transition
+                val blendKernel = Imgproc.getStructuringElement(
+                    Imgproc.MORPH_ELLIPSE, Size(11.0, 11.0)
+                )
+                val blendBorder = Mat()
+                Imgproc.dilate(currMask, blendBorder, blendKernel)
+                blendKernel.release()
+
+                val blendZone = Mat()
+                Core.subtract(blendBorder, currMask, blendZone)
+                blendBorder.release()
+
+                val blurred = Mat()
+                Imgproc.GaussianBlur(resultMat, blurred, Size(9.0, 9.0), 0.0)
+                blurred.copyTo(resultMat, blendZone)
+                blurred.release()
+                blendZone.release()
             } catch (e: Exception) {
                 currMat.copyTo(resultMat)
             }
@@ -929,10 +976,51 @@ class MainActivity : FlutterActivity() {
             }
             cleanBgMask.release()
 
-            // If there were overlapping regions where BOTH frames had the person, inpaint those pixels
+            // If there were overlapping regions where BOTH frames had the person,
+            // fill with surrounding actual content via multi-scale inpainting
             if (Core.countNonZero(overlapMask) > 0) {
                 try {
-                    Photo.inpaint(tempBlended, overlapMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+                    // Sample real whiteboard color around the overlap region
+                    val olBorderKernel = Imgproc.getStructuringElement(
+                        Imgproc.MORPH_ELLIPSE, Size(45.0, 45.0)
+                    )
+                    val olDilated = Mat()
+                    Imgproc.dilate(overlapMask, olDilated, olBorderKernel)
+                    olBorderKernel.release()
+
+                    val olBorderRing = Mat()
+                    Core.subtract(olDilated, overlapMask, olBorderRing)
+                    olDilated.release()
+
+                    val olBorderMean = Core.mean(tempBlended, olBorderRing)
+                    olBorderRing.release()
+
+                    // Pre-fill overlap area with sampled whiteboard color
+                    tempBlended.setTo(olBorderMean, overlapMask)
+
+                    // Multi-scale inpaint for natural content continuity
+                    val olTemp = Mat()
+                    Photo.inpaint(tempBlended, overlapMask, olTemp, 21.0, Photo.INPAINT_NS)
+                    Photo.inpaint(olTemp, overlapMask, resultMat, 5.0, Photo.INPAINT_TELEA)
+                    olTemp.release()
+
+                    // Smooth boundary transition
+                    val olBlendKernel = Imgproc.getStructuringElement(
+                        Imgproc.MORPH_ELLIPSE, Size(11.0, 11.0)
+                    )
+                    val olBlendBorder = Mat()
+                    Imgproc.dilate(overlapMask, olBlendBorder, olBlendKernel)
+                    olBlendKernel.release()
+
+                    val olBlendZone = Mat()
+                    Core.subtract(olBlendBorder, overlapMask, olBlendZone)
+                    olBlendBorder.release()
+
+                    val olBlurred = Mat()
+                    Imgproc.GaussianBlur(resultMat, olBlurred, Size(9.0, 9.0), 0.0)
+                    olBlurred.copyTo(resultMat, olBlendZone)
+                    olBlurred.release()
+                    olBlendZone.release()
                 } catch (e: Exception) {
                     tempBlended.copyTo(resultMat)
                 }
@@ -1099,10 +1187,64 @@ class MainActivity : FlutterActivity() {
             candMat.release()
         }
 
-        // Only inpaint pixels that were never visible in ANY frame across the sequence
+        // Fill pixels that were never visible in ANY frame across the sequence
+        // using surrounding actual whiteboard content for seamless blending.
         if (Core.countNonZero(unresolvedMask) > 0) {
             try {
-                Photo.inpaint(resultMat, unresolvedMask, resultMat, 7.0, Photo.INPAINT_TELEA)
+                // Sample the dominant whiteboard color from the border around the
+                // unresolved region (the actual board content adjacent to the gap).
+                // This ensures we fill with real whiteboard tones, not random values.
+                val borderKernel = Imgproc.getStructuringElement(
+                    Imgproc.MORPH_ELLIPSE, Size(45.0, 45.0)
+                )
+                val dilatedUnresolved = Mat()
+                Imgproc.dilate(unresolvedMask, dilatedUnresolved, borderKernel)
+                borderKernel.release()
+
+                // borderMask = dilated region minus the original unresolved region
+                // = the ring of real content pixels immediately surrounding the gap
+                val borderMask = Mat()
+                Core.subtract(dilatedUnresolved, unresolvedMask, borderMask)
+                dilatedUnresolved.release()
+
+                // Sample mean color from that border ring (actual whiteboard content)
+                val borderMean = Core.mean(resultMat, borderMask)
+                borderMask.release()
+
+                // Pre-fill the unresolved area with the sampled whiteboard color
+                // so inpainting starts from a realistic base instead of black/zero
+                resultMat.setTo(borderMean, unresolvedMask)
+
+                // Multi-scale inpainting for natural blending:
+                // First pass with large radius for broad color continuity,
+                // then refine with a smaller radius for texture-level detail.
+                val tempResult = Mat()
+                Photo.inpaint(resultMat, unresolvedMask, tempResult, 21.0, Photo.INPAINT_NS)
+
+                // Second pass: use Telea for fine local detail on what remains
+                Photo.inpaint(tempResult, unresolvedMask, resultMat, 5.0, Photo.INPAINT_TELEA)
+                tempResult.release()
+
+                // Smooth the transition at the boundary of the filled region
+                // so the inpainted area blends seamlessly with surrounding content.
+                val blendKernel = Imgproc.getStructuringElement(
+                    Imgproc.MORPH_ELLIPSE, Size(11.0, 11.0)
+                )
+                val blendBorder = Mat()
+                Imgproc.dilate(unresolvedMask, blendBorder, blendKernel)
+                blendKernel.release()
+
+                // blendZone = thin ring where inpainted meets original
+                val blendZone = Mat()
+                Core.subtract(blendBorder, unresolvedMask, blendZone)
+                blendBorder.release()
+
+                // Apply a light Gaussian blur only within the blend zone
+                val blurred = Mat()
+                Imgproc.GaussianBlur(resultMat, blurred, Size(9.0, 9.0), 0.0)
+                blurred.copyTo(resultMat, blendZone)
+                blurred.release()
+                blendZone.release()
             } catch (_: Exception) {}
         }
         unresolvedMask.release()
