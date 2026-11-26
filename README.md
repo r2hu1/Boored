@@ -1,7 +1,7 @@
 <div align="center">
   <img src="apps/mobile/assets/logo.png" width="96" alt="Boored Logo" />
   <h1>Boored</h1>
-  <p><strong>Capture whiteboards and turn them into clean, easy-to-read digital notes. (21st Aavishkar Runner Up)</strong></p>
+  <p><strong>Capture whiteboards and turn them into clean, easy-to-read digital notes. (Mumbai University's 21st Aavishkar Runner Up)</strong></p>
   <p>Automated perspective rectification, pre-erase keyframing, lecturer de-occlusion, OCR extraction, and vector PDF compilation.</p>
 </div>
 
